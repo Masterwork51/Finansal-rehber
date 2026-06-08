@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="description" content="Kişisel finans paneli — vize hedefi, dolar birikimi ve bütçe takibi">
+  <title>Finans Paneli</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Splash -->
+    <div id="splash" class="splash" aria-hidden="true">
+      <div class="splash-inner">
+        <div class="splash-logo">₺</div>
+        <p>Finans Paneli</p>
+      </div>
+    </div>
+
+    <!-- Header -->
+    <header class="header">
+      <div class="header-top">
+        <h1>Finans Paneli</h1>
+        <button type="button" class="btn-update" id="btn-quick-update">Güncelle</button>
+      </div>
+      <p class="header-month" id="current-month">Haziran 2026</p>
+      <div class="rates-bar" id="rates-bar">
+        <span id="rate-usd">USD —</span>
+        <span id="rate-eur">EUR —</span>
+        <span id="rate-gbp">GBP —</span>
+        <span class="rates-source" id="rates-source">Kur yükleniyor…</span>
+      </div>
+    </header>
+
+    <!-- Telefona ekle banner -->
+    <div class="install-banner hidden" id="install-banner">
+      <div class="install-banner-text">
+        <strong>Telefona uygulama gibi ekle</strong>
+        <span id="install-hint">Ana ekrana ekleyince her zaman buradan açarsın.</span>
+      </div>
+      <button type="button" class="btn primary small" id="btn-install-help">Nasıl?</button>
+      <button type="button" class="install-close" id="btn-dismiss-install" aria-label="Kapat">&times;</button>
+    </div>
+
+    <main class="main">
+      <!-- Hero: Net Worth -->
+      <section class="card hero-card" aria-labelledby="net-worth-label">
+        <span class="label" id="net-worth-label">Toplam Net Varlık</span>
+        <p class="hero-amount" id="net-worth">₺339.000</p>
+        <div class="hero-grid">
+          <div class="hero-stat">
+            <span class="hero-stat-label">Vize Hesabı</span>
+            <span class="hero-stat-value" id="visa-account-text">$4.350 / $5.000</span>
+            <div class="progress-bar" role="progressbar" aria-valuenow="87" aria-valuemin="0" aria-valuemax="100">
+              <div class="progress-fill visa" id="visa-progress" style="width: 87%"></div>
+            </div>
+            <span class="hero-stat-pct" id="visa-pct">87%</span>
+          </div>
+          <div class="hero-stat">
+            <span class="hero-stat-label">Bu Ay Alınabilir Dolar</span>
+            <span class="hero-stat-value accent" id="buyable-usd">$452</span>
+          </div>
+          <div class="hero-stat risk-stat">
+            <span class="hero-stat-label" id="risk-date-label">15 Haziran Risk Durumu</span>
+            <span class="risk-badge safe" id="risk-badge">
+              <span class="risk-dot"></span> Güvenli
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Monthly Checklist -->
+      <section class="card checklist-card" aria-labelledby="checklist-title">
+        <div class="card-header">
+          <h2 id="checklist-title">Bu Ay Yapılacaklar</h2>
+          <span class="checklist-pct" id="checklist-pct">0%</span>
+        </div>
+        <ul class="checklist" id="checklist"></ul>
+      </section>
+
+      <!-- Smart Advice -->
+      <section class="card advice-card" aria-labelledby="advice-title">
+        <div class="card-header">
+          <h2 id="advice-title">Akıllı Tavsiye</h2>
+          <button type="button" class="text-btn" id="btn-refresh-advice">Yenile</button>
+        </div>
+        <p class="advice-text" id="advice-text">Yükleniyor…</p>
+      </section>
+
+      <!-- Assets -->
+      <section class="card" aria-labelledby="assets-title">
+        <h2 id="assets-title">Varlıklarım</h2>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr><th>Varlık</th><th>Tutar</th></tr>
+            </thead>
+            <tbody id="assets-tbody"></tbody>
+            <tfoot>
+              <tr class="total-row">
+                <td>Toplam TL Karşılığı</td>
+                <td id="total-tl-equiv">—</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </section>
+
+      <!-- Expenses -->
+      <section class="card" aria-labelledby="expenses-title">
+        <h2 id="expenses-title">Borçlar ve Giderler</h2>
+        <div class="expense-groups">
+          <div class="expense-group">
+            <h3>Sabit Giderler</h3>
+            <ul class="expense-list" id="fixed-expenses"></ul>
+            <p class="expense-subtotal">Aylık: <strong id="fixed-total">—</strong></p>
+          </div>
+          <div class="expense-group">
+            <h3>Değişken Giderler</h3>
+            <ul class="expense-list" id="variable-expenses"></ul>
+            <p class="expense-subtotal">Tahmini: <strong id="variable-total">—</strong></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Credit Card -->
+      <section class="card credit-card" aria-labelledby="cc-title">
+        <h2 id="cc-title">Kredi Kartı Merkezi</h2>
+        <div class="cc-grid">
+          <div class="cc-stat">
+            <span class="label">Kart Borcu</span>
+            <span class="cc-amount danger" id="cc-debt">82.000 TL</span>
+          </div>
+          <div class="cc-stat">
+            <span class="label">Son Ödeme</span>
+            <span class="cc-date" id="cc-due">15 Haziran</span>
+          </div>
+          <div class="cc-stat highlight">
+            <span class="label">Kalan Gün</span>
+            <span class="cc-days" id="cc-days">7 Gün</span>
+          </div>
+        </div>
+        <div class="cc-bar-wrap">
+          <div class="cc-bar" id="cc-urgency-bar"></div>
+        </div>
+      </section>
+
+      <!-- Dollar Center -->
+      <section class="card dollar-card" aria-labelledby="dollar-title">
+        <h2 id="dollar-title">Dolar Biriktirme Merkezi</h2>
+        <p class="section-desc">Bu bölüm senin için en önemlisi.</p>
+        <div class="dollar-sim">
+          <span class="dollar-sim-label">Bugün USD Alırsan</span>
+          <div class="dollar-rows">
+            <div class="dollar-row">
+              <span>Tahmini Alım</span>
+              <strong id="sim-buy">452 USD</strong>
+            </div>
+            <div class="dollar-row">
+              <span>Yeni Toplam</span>
+              <strong id="sim-new-total">4.802 USD</strong>
+            </div>
+            <div class="dollar-row goal-row">
+              <span>5.000 USD Hedefine</span>
+              <strong id="sim-remaining">198 USD kaldı</strong>
+            </div>
+          </div>
+        </div>
+        <div class="dollar-slider-wrap">
+          <label for="usd-slider">Alım miktarı simülasyonu</label>
+          <input type="range" id="usd-slider" min="0" max="600" step="10" value="452">
+          <span class="slider-value" id="slider-value">452 USD</span>
+        </div>
+      </section>
+
+      <!-- Visa Score -->
+      <section class="card visa-score-card" aria-labelledby="visa-score-title">
+        <h2 id="visa-score-title">Vize Gücü Skoru</h2>
+        <p class="section-desc">Konsolosluk açısından</p>
+        <div class="score-block">
+          <span class="label">Banka Hesabı Gücü</span>
+          <div class="stars" id="visa-stars" aria-label="8/10 yıldız"></div>
+          <p class="score-number">Skor: <strong id="visa-score">82</strong>/100</p>
+        </div>
+        <div class="score-tips" id="visa-tips"></div>
+      </section>
+
+      <!-- Goals -->
+      <section class="card" aria-labelledby="goals-title">
+        <h2 id="goals-title">Hedefler</h2>
+        <div class="goals-list" id="goals-list"></div>
+      </section>
+
+      <!-- UK Travel Budget -->
+      <section class="card travel-card" aria-labelledby="uk-travel-title">
+        <h2 id="uk-travel-title">İngiltere Seyahat Bütçesi</h2>
+        <p class="section-desc">Vize başvurusu ve seyahat için tahmini maliyet</p>
+        <div class="travel-total">
+          <span>Toplam Tahmin</span>
+          <strong id="uk-total">—</strong>
+        </div>
+        <ul class="travel-breakdown" id="uk-breakdown"></ul>
+        <div class="travel-saved">
+          <span>Biriktirilen</span>
+          <strong id="uk-saved">—</strong>
+        </div>
+        <div class="goal-progress"><div class="goal-progress-fill visa" id="uk-progress"></div></div>
+        <p class="travel-gap" id="uk-gap"></p>
+      </section>
+
+      <!-- Fethiye Budget -->
+      <section class="card fethiye-card" aria-labelledby="fethiye-title">
+        <h2 id="fethiye-title">Fethiye Tatil Bütçesi</h2>
+        <div class="goal-stats fethiye-stats">
+          <div class="goal-stat"><span>Hedef</span><strong id="fethiye-target">—</strong></div>
+          <div class="goal-stat"><span>Biriken</span><strong id="fethiye-saved">—</strong></div>
+          <div class="goal-stat"><span>Kalan</span><strong id="fethiye-remaining">—</strong></div>
+        </div>
+        <div class="goal-progress"><div class="goal-progress-fill emergency" id="fethiye-progress"></div></div>
+      </section>
+
+      <!-- Charts -->
+      <section class="card" aria-labelledby="charts-title">
+        <h2 id="charts-title">Grafikler</h2>
+        <div class="chart-block">
+          <h3>USD Birikim Grafiği</h3>
+          <div class="chart-container">
+            <canvas id="chart-usd" height="180"></canvas>
+          </div>
+        </div>
+        <div class="chart-block">
+          <h3>Net Servet Grafiği</h3>
+          <div class="chart-container">
+            <canvas id="chart-networth" height="180"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- Roadmap -->
+      <section class="card v3-card" aria-labelledby="v3-title">
+        <h2 id="v3-title">Gelecek Özellikler</h2>
+        <p class="section-desc">Sıradaki geliştirmeler</p>
+        <ul class="v3-list" id="v3-list"></ul>
+      </section>
+    </main>
+
+    <nav class="bottom-nav" aria-label="Ana navigasyon">
+      <button type="button" class="nav-item active" data-scroll="top">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+        <span>Özet</span>
+      </button>
+      <button type="button" class="nav-item" data-scroll="dollar-card">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+        <span>Dolar</span>
+      </button>
+      <button type="button" class="nav-item" data-scroll="goals-title">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+        <span>Hedefler</span>
+      </button>
+      <button type="button" class="nav-item" data-scroll="charts-title">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+        <span>Grafik</span>
+      </button>
+    </nav>
+
+    <!-- Quick Update Modal -->
+    <dialog id="quick-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Rakamları Güncelle</h2>
+          <button type="button" class="icon-btn modal-close" aria-label="Kapat">&times;</button>
+        </div>
+        <p class="modal-desc">Banka uygulamasından baktığın rakamları buraya yaz. Başka bir şey yapmana gerek yok.</p>
+        <form id="quick-form" class="quick-form">
+          <label class="quick-field">
+            <span>Vize hesabındaki dolar</span>
+            <input type="number" name="visaUsd" inputmode="decimal" min="0" placeholder="4350">
+          </label>
+          <label class="quick-field">
+            <span>Kredi kartı borcu (TL)</span>
+            <input type="number" name="ccDebt" inputmode="decimal" min="0" placeholder="82000">
+          </label>
+          <label class="quick-field">
+            <span>Eldeki TL nakit</span>
+            <input type="number" name="tlCash" inputmode="decimal" min="0" placeholder="70000">
+          </label>
+          <label class="quick-field">
+            <span>Bu ay alabileceğin dolar</span>
+            <input type="number" name="buyableUsd" inputmode="decimal" min="0" placeholder="452">
+          </label>
+          <label class="quick-field">
+            <span>İngiltere için biriktirdiğin (TL)</span>
+            <input type="number" name="ukSaved" inputmode="decimal" min="0" placeholder="0">
+          </label>
+          <label class="quick-field">
+            <span>Fethiye için biriktirdiğin (TL)</span>
+            <input type="number" name="fethiyeSaved" inputmode="decimal" min="0" placeholder="7200">
+          </label>
+          <div class="modal-actions">
+            <button type="submit" class="btn primary">Kaydet</button>
+          </div>
+        </form>
+        <button type="button" class="text-btn advanced-link" id="btn-advanced">Tüm ayarlar →</button>
+      </div>
+    </dialog>
+
+    <!-- Advanced Settings Modal -->
+    <dialog id="settings-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Tüm Ayarlar</h2>
+          <button type="button" class="icon-btn modal-close" aria-label="Kapat">&times;</button>
+        </div>
+        <form id="settings-form" class="settings-form">
+          <fieldset>
+            <legend>Varlıklar</legend>
+            <label>TL Nakit <input type="number" name="tlCash" min="0"></label>
+            <label>USD Nakit <input type="number" name="usdCash" min="0"></label>
+            <label>EUR Nakit <input type="number" name="eurCash" min="0"></label>
+            <label>Vize USD <input type="number" name="visaUsd" min="0"></label>
+          </fieldset>
+          <fieldset>
+            <legend>Kredi Kartı</legend>
+            <label>Borç (TL) <input type="number" name="ccDebt" min="0"></label>
+            <label>Son Ödeme Günü <input type="number" name="ccDueDay" min="1" max="31"></label>
+          </fieldset>
+          <fieldset>
+            <legend>Hedefler</legend>
+            <label>Vize Hedefi (USD) <input type="number" name="visaGoal" min="0"></label>
+            <label>Bu Ay Alınabilir USD <input type="number" name="buyableUsd" min="0"></label>
+            <label>Acil Fon % <input type="number" name="emergencyPct" min="0" max="100"></label>
+          </fieldset>
+          <fieldset>
+            <legend>Fethiye Hedefi (TL)</legend>
+            <label>Hedef <input type="number" name="fethiyeTarget" min="0"></label>
+          </fieldset>
+          <div class="modal-actions">
+            <button type="button" class="btn secondary" id="btn-reset-data">Sıfırla</button>
+            <button type="submit" class="btn primary">Kaydet</button>
+          </div>
+        </form>
+      </div>
+    </dialog>
+
+    <!-- Install Help Modal -->
+    <dialog id="install-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Telefona Nasıl Eklenir?</h2>
+          <button type="button" class="icon-btn modal-close" aria-label="Kapat">&times;</button>
+        </div>
+        <div class="install-steps" id="install-steps"></div>
+        <p class="install-url-label">Bu linki kaydet:</p>
+        <p class="install-url" id="install-url"></p>
+        <button type="button" class="btn primary" id="btn-copy-url">Linki Kopyala</button>
+      </div>
+    </dialog>
+  </div>
+
+  <script src="js/data.js"></script>
+  <script src="js/rates.js"></script>
+  <script src="js/advice.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
