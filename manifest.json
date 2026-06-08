@@ -1,7 +1,7 @@
 {
-  "name": "Finans Paneli",
-  "short_name": "Finans",
-  "description": "Kişisel finans paneli — vize hedefi, dolar birikimi ve bütçe takibi",
+  "name": "Birikim Hesaplayıcı",
+  "short_name": "Birikim",
+  "description": "Bu ay max kaç dolar biriktirebilirsin? Harcama kontrolü ve vize hedefi.",
   "start_url": "./index.html",
   "display": "standalone",
   "orientation": "portrait",

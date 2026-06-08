@@ -107,26 +107,19 @@ const Charts = {
     });
   },
 
-  renderAll(data) {
+  renderUsd(data) {
     const usdCanvas = document.getElementById('chart-usd');
-    const nwCanvas = document.getElementById('chart-networth');
+    if (!usdCanvas || !data.history?.usd) return;
 
-    if (usdCanvas) {
-      this.drawLineChart(
-        usdCanvas,
-        data.history.usd.map((d) => d.month),
-        data.history.usd.map((d) => d.value),
-        { color: '#22c55e', formatY: (v) => '$' + Math.round(v).toLocaleString('tr-TR') }
-      );
-    }
+    this.drawLineChart(
+      usdCanvas,
+      data.history.usd.map((d) => d.month),
+      data.history.usd.map((d) => d.value),
+      { color: '#22c55e', formatY: (v) => '$' + Math.round(v).toLocaleString('tr-TR') }
+    );
+  },
 
-    if (nwCanvas) {
-      this.drawLineChart(
-        nwCanvas,
-        data.history.netWorth.map((d) => d.month),
-        data.history.netWorth.map((d) => d.value),
-        { color: '#3b9eff', formatY: (v) => '₺' + Math.round(v / 1000) + 'K' }
-      );
-    }
+  renderAll(data) {
+    this.renderUsd(data);
   }
 };

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'finans-paneli-v3-2';
+const CACHE_NAME = 'finans-paneli-v4-0';
 const ASSETS = [
   './index.html',
   './css/styles.css',
