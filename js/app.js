@@ -1,9 +1,10 @@
 /**
- * Finans Paneli V3 — Ana uygulama
+ * Finans Paneli v3.2 — Ana uygulama
  */
 
 let appData = loadData();
 let deferredInstallPrompt = null;
+let expensesEditing = false;
 
 const CHECKLIST_ITEMS = [
   { key: 'payCreditCard', label: 'Kredi kartı borcunu öde' },
@@ -12,25 +13,45 @@ const CHECKLIST_ITEMS = [
   { key: 'checkVisaAccount', label: 'Vize hesabını kontrol et' }
 ];
 
+const MODAL_IDS = ['quick-modal', 'settings-modal', 'uk-modal', 'fethiye-modal', 'install-modal'];
+
 document.addEventListener('DOMContentLoaded', init);
 
 async function init() {
-  await RatesService.loadInto(appData);
-  hideSplash();
-  renderAll();
-  bindEvents();
-  setupInstallPrompt();
-  registerServiceWorker();
+  try {
+    await RatesService.loadInto(appData);
+    hideSplash();
+    renderAll();
+    bindEvents();
+    setupInstallPrompt();
+    registerServiceWorker();
+    forceAppUpdate();
 
-  window.addEventListener('resize', debounce(() => {
-    Charts.renderAll(appData);
-  }, 200));
+    window.addEventListener('resize', debounce(() => {
+      Charts.renderAll(appData);
+    }, 200));
+  } catch (err) {
+    console.error(err);
+    hideSplash();
+    document.body.insertAdjacentHTML('beforeend',
+      '<div style="position:fixed;inset:0;background:#0b0f1a;color:#fff;padding:24px;z-index:9999">' +
+      '<h2>Uygulama yüklenemedi</h2><p>Sayfayı yenile veya ana ekrandaki ikonu silip tekrar ekle.</p></div>'
+    );
+  }
+}
+
+function forceAppUpdate() {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then((regs) => {
+      regs.forEach((reg) => reg.update());
+    });
+  }
 }
 
 function hideSplash() {
   setTimeout(() => {
-    document.getElementById('splash').classList.add('hidden');
-  }, 800);
+    document.getElementById('splash')?.classList.add('hidden');
+  }, 600);
 }
 
 function renderAll() {
@@ -124,6 +145,8 @@ function renderAssets() {
 }
 
 function renderExpenses() {
+  if (expensesEditing) return;
+
   const fixedEl = document.getElementById('fixed-expenses');
   const varEl = document.getElementById('variable-expenses');
 
@@ -156,8 +179,32 @@ function renderExpenses() {
     const cls = remaining >= 0 ? 'positive' : 'negative';
     summary.innerHTML = `Maaş ${formatTL(salary)} · Gider sonrası kalan: <strong class="${cls}">${formatTL(remaining)}</strong>`;
   } else {
-    summary.textContent = 'Maaşını giderler bölümünden ekleyebilirsin.';
+    summary.textContent = 'Düzenle\'ye basarak maaşını ve giderlerini girebilirsin.';
   }
+
+  const btn = document.getElementById('btn-edit-expenses');
+  btn.textContent = 'Düzenle';
+}
+
+function openExpensesEdit() {
+  expensesEditing = true;
+  document.getElementById('expenses-view').classList.add('hidden');
+  document.getElementById('expenses-edit').classList.remove('hidden');
+  document.getElementById('btn-edit-expenses').textContent = 'Düzenleniyor…';
+
+  renderExpenseEditor('fixed', appData.expenses.fixed);
+  renderExpenseEditor('variable', appData.expenses.variable);
+  document.querySelector('#expenses-inline-form [name="monthlySalary"]').value =
+    appData.income?.monthlySalary || 0;
+
+  document.getElementById('expenses-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function closeExpensesEdit() {
+  expensesEditing = false;
+  document.getElementById('expenses-view').classList.remove('hidden');
+  document.getElementById('expenses-edit').classList.add('hidden');
+  renderExpenses();
 }
 
 function renderCreditCard() {
@@ -244,7 +291,7 @@ function renderUkTravel() {
   const totalTl = calcUkTravelTotalTl(appData);
   const saved = uk.savedTl;
   const gap = Math.max(0, totalTl - saved);
-  const pct = Math.min(100, (saved / totalTl) * 100);
+  const pct = totalTl > 0 ? Math.min(100, (saved / totalTl) * 100) : 0;
 
   document.getElementById('uk-total').textContent =
     `£${formatNumber(totalGbp)} · ${formatTL(totalTl)}`;
@@ -293,16 +340,18 @@ function escapeHtml(str) {
 }
 
 function bindEvents() {
-  document.getElementById('btn-edit-expenses').addEventListener('click', openExpensesModal);
+  document.getElementById('btn-edit-expenses').addEventListener('click', openExpensesEdit);
+  document.getElementById('btn-cancel-expenses').addEventListener('click', closeExpensesEdit);
+
   document.getElementById('btn-edit-assets').addEventListener('click', () => {
     populateQuickForm();
-    document.getElementById('quick-modal').showModal();
+    Modal.open('quick-modal');
   });
   document.getElementById('btn-edit-uk').addEventListener('click', openUkModal);
   document.getElementById('btn-edit-fethiye').addEventListener('click', openFethiyeModal);
 
-  document.getElementById('fixed-expenses').addEventListener('click', handleExpenseRowClick);
-  document.getElementById('variable-expenses').addEventListener('click', handleExpenseRowClick);
+  document.getElementById('fixed-expenses').addEventListener('click', () => openExpensesEdit());
+  document.getElementById('variable-expenses').addEventListener('click', () => openExpensesEdit());
 
   document.getElementById('btn-refresh-advice').addEventListener('click', () => {
     renderAdvice();
@@ -338,80 +387,69 @@ function bindEvents() {
     });
   });
 
-  const quickModal = document.getElementById('quick-modal');
-  const settingsModal = document.getElementById('settings-modal');
-  const installModal = document.getElementById('install-modal');
-  const expensesModal = document.getElementById('expenses-modal');
-  const ukModal = document.getElementById('uk-modal');
-  const fethiyeModal = document.getElementById('fethiye-modal');
+  MODAL_IDS.forEach((id) => Modal.bind(id));
 
   document.getElementById('btn-quick-update').addEventListener('click', () => {
     populateQuickForm();
-    quickModal.showModal();
+    Modal.open('quick-modal');
   });
 
   document.getElementById('btn-advanced').addEventListener('click', () => {
-    quickModal.close();
+    Modal.close('quick-modal');
     populateSettingsForm();
-    settingsModal.showModal();
+    Modal.open('settings-modal');
   });
 
-  [quickModal, settingsModal, installModal, expensesModal, ukModal, fethiyeModal].forEach((modal) => {
-    modal.querySelector('.modal-close').addEventListener('click', () => modal.close());
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) modal.close();
-    });
-  });
-
-  document.getElementById('expenses-form').addEventListener('submit', (e) => {
-    e.preventDefault();
-    saveExpensesFromForm();
-    expensesModal.close();
-    renderAll();
-    navigator.vibrate?.(20);
-  });
-
-  document.querySelectorAll('.btn-add').forEach((btn) => {
+  document.querySelectorAll('#expenses-edit .btn-add').forEach((btn) => {
     btn.addEventListener('click', () => addExpenseRow(btn.dataset.type));
+  });
+
+  document.getElementById('expenses-inline-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    saveExpensesFromInlineForm();
+    closeExpensesEdit();
+    renderAll();
+    Toast.show('Giderler kaydedildi ✓');
   });
 
   document.getElementById('uk-form').addEventListener('submit', (e) => {
     e.preventDefault();
     saveUkFromForm(new FormData(e.target));
-    ukModal.close();
+    Modal.close('uk-modal');
     renderAll();
-    navigator.vibrate?.(20);
+    Toast.show('İngiltere bütçesi kaydedildi ✓');
   });
 
   document.getElementById('fethiye-form').addEventListener('submit', (e) => {
     e.preventDefault();
     saveFethiyeFromForm(new FormData(e.target));
-    fethiyeModal.close();
+    Modal.close('fethiye-modal');
     renderAll();
-    navigator.vibrate?.(20);
+    Toast.show('Fethiye bütçesi kaydedildi ✓');
   });
 
   document.getElementById('quick-form').addEventListener('submit', (e) => {
     e.preventDefault();
     saveFromQuickForm(new FormData(e.target));
-    quickModal.close();
+    Modal.close('quick-modal');
     renderAll();
-    navigator.vibrate?.(20);
+    Toast.show('Rakamlar kaydedildi ✓');
   });
 
   document.getElementById('settings-form').addEventListener('submit', (e) => {
     e.preventDefault();
     saveFromForm(new FormData(e.target));
-    settingsModal.close();
+    Modal.close('settings-modal');
     renderAll();
-    navigator.vibrate?.(20);
+    Toast.show('Ayarlar kaydedildi ✓');
   });
 
   document.getElementById('btn-reset-data').addEventListener('click', () => {
     if (confirm('Tüm verilerin silinip başlangıç rakamlarına dönülecek. Emin misin?')) {
       appData = resetData();
-      settingsModal.close();
+      Modal.close('settings-modal');
       renderAll();
+      Toast.show('Veriler sıfırlandı');
     }
   });
 
@@ -452,30 +490,13 @@ function saveFromQuickForm(fd) {
   appData.assets.tlCash = Number(fd.get('tlCash'));
   appData.assets.usdCash = Number(fd.get('usdCash'));
   appData.assets.eurCash = Number(fd.get('eurCash'));
+  if (!appData.income) appData.income = {};
   appData.income.monthlySalary = Number(fd.get('monthlySalary'));
   appData.goals.buyableUsdThisMonth = Number(fd.get('buyableUsd'));
   appData.travel.uk.savedTl = Number(fd.get('ukSaved'));
   appData.travel.fethiye.savedTl = Number(fd.get('fethiyeSaved'));
   updateHistory();
   saveData(appData);
-}
-
-function handleExpenseRowClick(e) {
-  const row = e.target.closest('.expense-row');
-  if (!row) return;
-  openExpensesModal();
-}
-
-function openExpensesModal() {
-  populateExpensesEditor();
-  document.getElementById('expenses-modal').showModal();
-}
-
-function populateExpensesEditor() {
-  renderExpenseEditor('fixed', appData.expenses.fixed);
-  renderExpenseEditor('variable', appData.expenses.variable);
-  document.querySelector('#expenses-form [name="monthlySalary"]').value =
-    appData.income?.monthlySalary || 0;
 }
 
 function renderExpenseEditor(type, items) {
@@ -494,10 +515,7 @@ function expenseEditorRow(type, index, item) {
 
 function bindExpenseEditorEvents(container) {
   container.querySelectorAll('.editor-delete').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const row = btn.closest('.editor-row');
-      row.remove();
-    });
+    btn.addEventListener('click', () => btn.closest('.editor-row').remove());
   });
 }
 
@@ -527,11 +545,12 @@ function readExpenseEditor(type) {
   return items.length ? items : [{ name: 'Yeni gider', amount: 0 }];
 }
 
-function saveExpensesFromForm() {
+function saveExpensesFromInlineForm() {
   appData.expenses.fixed = readExpenseEditor('fixed');
   appData.expenses.variable = readExpenseEditor('variable');
+  if (!appData.income) appData.income = {};
   appData.income.monthlySalary = Number(
-    document.querySelector('#expenses-form [name="monthlySalary"]').value
+    document.querySelector('#expenses-inline-form [name="monthlySalary"]').value
   );
   saveData(appData);
 }
@@ -545,7 +564,7 @@ function openUkModal() {
   form.dailyGbp.value = uk.dailyGbp;
   form.days.value = uk.days;
   form.ukSaved.value = uk.savedTl;
-  document.getElementById('uk-modal').showModal();
+  Modal.open('uk-modal');
 }
 
 function saveUkFromForm(fd) {
@@ -564,7 +583,7 @@ function openFethiyeModal() {
   const form = document.getElementById('fethiye-form');
   form.fethiyeTarget.value = f.targetTl;
   form.fethiyeSaved.value = f.savedTl;
-  document.getElementById('fethiye-modal').showModal();
+  Modal.open('fethiye-modal');
 }
 
 function saveFethiyeFromForm(fd) {
@@ -601,6 +620,7 @@ function saveFromForm(fd) {
   appData.goals.emergencyFundCurrentPct = Number(fd.get('emergencyPct'));
   appData.travel.fethiye.targetTl = Number(fd.get('fethiyeTarget'));
   if (fd.get('monthlySalary') !== null) {
+    if (!appData.income) appData.income = {};
     appData.income.monthlySalary = Number(fd.get('monthlySalary'));
   }
   updateHistory();
@@ -638,7 +658,6 @@ function setupInstallPrompt() {
 }
 
 function showInstallHelp() {
-  const modal = document.getElementById('install-modal');
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
   const isAndroid = /Android/.test(navigator.userAgent);
   const url = window.location.href.split('?')[0];
@@ -647,38 +666,26 @@ function showInstallHelp() {
 
   let steps = '';
   if (isIOS) {
-    steps = `
-      <ol class="steps-list">
-        <li>Safari ile bu sayfayı aç</li>
-        <li>Alttaki <strong>Paylaş</strong> ikonuna dokun</li>
-        <li><strong>Ana Ekrana Ekle</strong> seçeneğine bas</li>
-        <li>İsim olarak "Finans Paneli" kalsın, Ekle'ye bas</li>
-      </ol>`;
+    steps = `<ol class="steps-list">
+      <li>Safari ile bu sayfayı aç</li>
+      <li>Alttaki <strong>Paylaş</strong> ikonuna dokun</li>
+      <li><strong>Ana Ekrana Ekle</strong> seçeneğine bas</li>
+    </ol>`;
   } else if (isAndroid) {
-    steps = `
-      <ol class="steps-list">
-        <li>Chrome ile bu sayfayı aç</li>
-        <li>Sağ üstteki <strong>⋮</strong> menüsüne dokun</li>
-        <li><strong>Ana ekrana ekle</strong> veya <strong>Uygulamayı yükle</strong> seç</li>
-        <li>Onayla — artık uygulama gibi açılır</li>
-      </ol>`;
+    steps = `<ol class="steps-list">
+      <li>Chrome ile bu sayfayı aç</li>
+      <li>Menü (⋮) → <strong>Ana ekrana ekle</strong></li>
+    </ol>`;
   } else {
-    steps = `
-      <ol class="steps-list">
-        <li>Telefonundan bu linki aç</li>
-        <li>Tarayıcı menüsünden "Ana ekrana ekle" seç</li>
-        <li>Her gün tek dokunuşla açabilirsin</li>
-      </ol>`;
+    steps = `<ol class="steps-list"><li>Telefondan linki aç</li><li>Ana ekrana ekle</li></ol>`;
   }
 
   document.getElementById('install-steps').innerHTML = steps;
-  modal.showModal();
+  Modal.open('install-modal');
 
   if (deferredInstallPrompt) {
     deferredInstallPrompt.prompt();
-    deferredInstallPrompt.userChoice.then(() => {
-      deferredInstallPrompt = null;
-    });
+    deferredInstallPrompt.userChoice.then(() => { deferredInstallPrompt = null; });
   }
 }
 
@@ -693,7 +700,7 @@ function copyAppUrl() {
 
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+    navigator.serviceWorker.register('sw.js?v=3.2').catch(() => {});
   }
 }
 
