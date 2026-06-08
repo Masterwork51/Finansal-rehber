@@ -26,6 +26,16 @@ Telefondan GitHub'a gir ve şu sayfayı aç:
 
 Artık her gün ikona dokunarak açarsın. Bilgisayar gerekmez.
 
+## Eski sürüm görünüyorsa
+
+Üstte **v3.2** yazısını görmüyorsan eski önbellek kalmış demektir:
+
+1. Ana ekrandaki Finans ikonunu **sil**
+2. Safari/Chrome'dan linki tekrar aç: https://masterwork51.github.io/Finansal-rehber/
+3. Tekrar **Ana ekrana ekle**
+
+Veya tarayıcıda sayfayı açık tut → aşağı çekip bırak (yenile).
+
 ## Rakamları güncellemek
 
 Uygulamada sağ üstteki **Güncelle** butonuna bas. Bankadan baktığın rakamları yaz, kaydet.
