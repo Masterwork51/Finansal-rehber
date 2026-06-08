@@ -41,6 +41,9 @@ const DEFAULT_DATA = {
       { name: 'Diğer', amount: 2000 }
     ]
   },
+  income: {
+    monthlySalary: 85000
+  },
   goals: {
     visaTargetUsd: 5000,
     buyableUsdThisMonth: 452,
@@ -104,12 +107,53 @@ function loadData() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      return deepMerge(structuredClone(DEFAULT_DATA), parsed);
+      const merged = deepMerge(structuredClone(DEFAULT_DATA), parsed);
+      return migrateData(merged);
     }
   } catch (e) {
     console.warn('Veri yüklenemedi, varsayılan kullanılıyor:', e);
   }
-  return structuredClone(DEFAULT_DATA);
+  return migrateData(structuredClone(DEFAULT_DATA));
+}
+
+function migrateData(data) {
+  const defaults = DEFAULT_DATA;
+
+  if (!data.income) data.income = { ...defaults.income };
+  if (!data.expenses) data.expenses = structuredClone(defaults.expenses);
+  if (!data.travel) data.travel = structuredClone(defaults.travel);
+  if (!data.checklist) data.checklist = { ...defaults.checklist };
+
+  data.expenses.fixed = normalizeExpenseList(data.expenses.fixed, defaults.expenses.fixed);
+  data.expenses.variable = normalizeExpenseList(data.expenses.variable, defaults.expenses.variable);
+
+  resetChecklistIfNewMonth(data);
+  return data;
+}
+
+function normalizeExpenseList(saved, fallback) {
+  if (!Array.isArray(saved) || saved.length === 0) {
+    return structuredClone(fallback);
+  }
+  return saved.map((item) => ({
+    name: String(item.name || 'Gider'),
+    amount: Math.max(0, Number(item.amount) || 0)
+  }));
+}
+
+function resetChecklistIfNewMonth(data) {
+  const now = new Date();
+  const monthKey = `${now.getFullYear()}-${now.getMonth()}`;
+  if (data.meta.checklistMonth !== monthKey) {
+    data.checklist = {
+      payCreditCard: false,
+      buyUsd: false,
+      payRent: false,
+      checkVisaAccount: false
+    };
+    data.meta.checklistMonth = monthKey;
+    saveData(data);
+  }
 }
 
 function saveData(data) {
@@ -251,4 +295,22 @@ function getMonthlyChecklistProgress(data) {
   const items = Object.values(data.checklist);
   const done = items.filter(Boolean).length;
   return { done, total: items.length, pct: Math.round((done / items.length) * 100) };
+}
+
+function getMonthlyExpensesTotal(data) {
+  return getFixedTotal(data) + getVariableTotal(data);
+}
+
+function calcSuggestedBuyableUsd(data) {
+  const salary = data.income?.monthlySalary || 0;
+  const expenses = getMonthlyExpensesTotal(data);
+  const ccReserve = data.creditCard.debt * 0.15;
+  const availableTl = salary - expenses - ccReserve;
+  if (availableTl <= 0 || !data.rates.usd) return 0;
+  return Math.max(0, Math.floor(availableTl / data.rates.usd));
+}
+
+function calcRemainingAfterExpenses(data) {
+  const salary = data.income?.monthlySalary || 0;
+  return salary - getMonthlyExpensesTotal(data);
 }

@@ -97,7 +97,10 @@
 
       <!-- Assets -->
       <section class="card" aria-labelledby="assets-title">
-        <h2 id="assets-title">Varlıklarım</h2>
+        <div class="card-header">
+          <h2 id="assets-title">Varlıklarım</h2>
+          <button type="button" class="text-btn" id="btn-edit-assets">Düzenle</button>
+        </div>
         <div class="table-wrap">
           <table class="data-table">
             <thead>
@@ -116,19 +119,24 @@
 
       <!-- Expenses -->
       <section class="card" aria-labelledby="expenses-title">
-        <h2 id="expenses-title">Borçlar ve Giderler</h2>
+        <div class="card-header">
+          <h2 id="expenses-title">Borçlar ve Giderler</h2>
+          <button type="button" class="text-btn" id="btn-edit-expenses">Düzenle</button>
+        </div>
+        <p class="budget-summary" id="budget-summary">—</p>
         <div class="expense-groups">
           <div class="expense-group">
             <h3>Sabit Giderler</h3>
-            <ul class="expense-list" id="fixed-expenses"></ul>
+            <ul class="expense-list editable-list" id="fixed-expenses"></ul>
             <p class="expense-subtotal">Aylık: <strong id="fixed-total">—</strong></p>
           </div>
           <div class="expense-group">
             <h3>Değişken Giderler</h3>
-            <ul class="expense-list" id="variable-expenses"></ul>
+            <ul class="expense-list editable-list" id="variable-expenses"></ul>
             <p class="expense-subtotal">Tahmini: <strong id="variable-total">—</strong></p>
           </div>
         </div>
+        <p class="expense-grand-total">Toplam gider: <strong id="monthly-total">—</strong></p>
       </section>
 
       <!-- Credit Card -->
@@ -201,7 +209,10 @@
 
       <!-- UK Travel Budget -->
       <section class="card travel-card" aria-labelledby="uk-travel-title">
-        <h2 id="uk-travel-title">İngiltere Seyahat Bütçesi</h2>
+        <div class="card-header">
+          <h2 id="uk-travel-title">İngiltere Seyahat Bütçesi</h2>
+          <button type="button" class="text-btn" id="btn-edit-uk">Düzenle</button>
+        </div>
         <p class="section-desc">Vize başvurusu ve seyahat için tahmini maliyet</p>
         <div class="travel-total">
           <span>Toplam Tahmin</span>
@@ -218,7 +229,10 @@
 
       <!-- Fethiye Budget -->
       <section class="card fethiye-card" aria-labelledby="fethiye-title">
-        <h2 id="fethiye-title">Fethiye Tatil Bütçesi</h2>
+        <div class="card-header">
+          <h2 id="fethiye-title">Fethiye Tatil Bütçesi</h2>
+          <button type="button" class="text-btn" id="btn-edit-fethiye">Düzenle</button>
+        </div>
         <div class="goal-stats fethiye-stats">
           <div class="goal-stat"><span>Hedef</span><strong id="fethiye-target">—</strong></div>
           <div class="goal-stat"><span>Biriken</span><strong id="fethiye-saved">—</strong></div>
@@ -293,8 +307,21 @@
             <input type="number" name="tlCash" inputmode="decimal" min="0" placeholder="70000">
           </label>
           <label class="quick-field">
+            <span>Eldeki USD nakit</span>
+            <input type="number" name="usdCash" inputmode="decimal" min="0" placeholder="1000">
+          </label>
+          <label class="quick-field">
+            <span>Eldeki EUR nakit</span>
+            <input type="number" name="eurCash" inputmode="decimal" min="0" placeholder="450">
+          </label>
+          <label class="quick-field">
+            <span>Aylık maaş (TL)</span>
+            <input type="number" name="monthlySalary" inputmode="decimal" min="0" placeholder="85000">
+          </label>
+          <label class="quick-field">
             <span>Bu ay alabileceğin dolar</span>
             <input type="number" name="buyableUsd" inputmode="decimal" min="0" placeholder="452">
+            <span class="field-hint" id="buyable-hint"></span>
           </label>
           <label class="quick-field">
             <span>İngiltere için biriktirdiğin (TL)</span>
@@ -339,6 +366,10 @@
             <label>Acil Fon % <input type="number" name="emergencyPct" min="0" max="100"></label>
           </fieldset>
           <fieldset>
+            <legend>Gelir</legend>
+            <label>Aylık Maaş (TL) <input type="number" name="monthlySalary" min="0"></label>
+          </fieldset>
+          <fieldset>
             <legend>Fethiye Hedefi (TL)</legend>
             <label>Hedef <input type="number" name="fethiyeTarget" min="0"></label>
           </fieldset>
@@ -346,6 +377,73 @@
             <button type="button" class="btn secondary" id="btn-reset-data">Sıfırla</button>
             <button type="submit" class="btn primary">Kaydet</button>
           </div>
+        </form>
+      </div>
+    </dialog>
+
+    <!-- Expenses Modal -->
+    <dialog id="expenses-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Giderleri Düzenle</h2>
+          <button type="button" class="icon-btn modal-close" aria-label="Kapat">&times;</button>
+        </div>
+        <p class="modal-desc">Her satıra dokunup tutarı değiştir. İsim ve tutarları güncelleyebilirsin.</p>
+        <form id="expenses-form" class="editor-form">
+          <fieldset>
+            <legend>Sabit Giderler</legend>
+            <div id="fixed-expenses-editor"></div>
+            <button type="button" class="btn-add" data-type="fixed">+ Sabit gider ekle</button>
+          </fieldset>
+          <fieldset>
+            <legend>Değişken Giderler</legend>
+            <div id="variable-expenses-editor"></div>
+            <button type="button" class="btn-add" data-type="variable">+ Değişken gider ekle</button>
+          </fieldset>
+          <fieldset>
+            <legend>Gelir</legend>
+            <label class="quick-field">
+              <span>Aylık maaş (TL)</span>
+              <input type="number" name="monthlySalary" inputmode="decimal" min="0">
+            </label>
+          </fieldset>
+          <div class="modal-actions">
+            <button type="submit" class="btn primary">Kaydet</button>
+          </div>
+        </form>
+      </div>
+    </dialog>
+
+    <!-- UK Travel Modal -->
+    <dialog id="uk-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>İngiltere Bütçesi</h2>
+          <button type="button" class="icon-btn modal-close" aria-label="Kapat">&times;</button>
+        </div>
+        <form id="uk-form" class="quick-form">
+          <label class="quick-field"><span>Vize ücreti (£)</span><input type="number" name="visaFeeGbp" min="0"></label>
+          <label class="quick-field"><span>Uçak (£)</span><input type="number" name="flightGbp" min="0"></label>
+          <label class="quick-field"><span>Otel (£)</span><input type="number" name="hotelGbp" min="0"></label>
+          <label class="quick-field"><span>Günlük harcama (£)</span><input type="number" name="dailyGbp" min="0"></label>
+          <label class="quick-field"><span>Kaç gün</span><input type="number" name="days" min="1" max="90"></label>
+          <label class="quick-field"><span>Biriktirilen (TL)</span><input type="number" name="ukSaved" min="0"></label>
+          <div class="modal-actions"><button type="submit" class="btn primary">Kaydet</button></div>
+        </form>
+      </div>
+    </dialog>
+
+    <!-- Fethiye Modal -->
+    <dialog id="fethiye-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Fethiye Bütçesi</h2>
+          <button type="button" class="icon-btn modal-close" aria-label="Kapat">&times;</button>
+        </div>
+        <form id="fethiye-form" class="quick-form">
+          <label class="quick-field"><span>Hedef (TL)</span><input type="number" name="fethiyeTarget" min="0"></label>
+          <label class="quick-field"><span>Biriken (TL)</span><input type="number" name="fethiyeSaved" min="0"></label>
+          <div class="modal-actions"><button type="submit" class="btn primary">Kaydet</button></div>
         </form>
       </div>
     </dialog>
