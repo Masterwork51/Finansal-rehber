@@ -1,17 +1,16 @@
 /**
- * Finans Paneli — Varsayılan veri modeli
- * localStorage'da 'finansPanelData' anahtarıyla saklanır
+ * Finans Paneli — Veri modeli ve birikim motoru
+ * Ana amaç: Bu ay max kaç dolar biriktirebilirsin?
  */
 
 const DEFAULT_DATA = {
   meta: {
-    version: 3,
+    version: 4,
     lastUpdated: null
   },
   rates: {
     usd: 34.50,
     eur: 37.20,
-    gbp: 43.80,
     updated: null,
     source: 'TCMB'
   },
@@ -23,7 +22,8 @@ const DEFAULT_DATA = {
   },
   creditCard: {
     debt: 82000,
-    dueDay: 15
+    dueDay: 15,
+    plannedPayment: 82000
   },
   expenses: {
     fixed: [
@@ -44,31 +44,17 @@ const DEFAULT_DATA = {
   income: {
     monthlySalary: 85000
   },
-  goals: {
-    visaTargetUsd: 5000,
-    buyableUsdThisMonth: 452,
-    emergencyFundMonths: 6,
-    emergencyFundCurrentPct: 48
+  savings: {
+    tlBuffer: 10000
   },
-  travel: {
-    uk: {
-      visaFeeGbp: 150,
-      flightGbp: 800,
-      hotelGbp: 700,
-      dailyGbp: 50,
-      days: 7,
-      savedTl: 0
-    },
-    fethiye: {
-      targetTl: 15000,
-      savedTl: 7200
-    }
+  goals: {
+    visaTargetUsd: 5000
   },
   checklist: {
+    reviewExpenses: false,
     payCreditCard: false,
-    buyUsd: false,
-    payRent: false,
-    checkVisaAccount: false
+    buyMaxUsd: false,
+    updateVisaAccount: false
   },
   history: {
     usd: [
@@ -78,30 +64,12 @@ const DEFAULT_DATA = {
       { month: 'Nisan', value: 4000 },
       { month: 'Mayıs', value: 4200 },
       { month: 'Haziran', value: 4350 }
-    ],
-    netWorth: [
-      { month: 'Ocak', value: 285000 },
-      { month: 'Şubat', value: 298000 },
-      { month: 'Mart', value: 310000 },
-      { month: 'Nisan', value: 322000 },
-      { month: 'Mayıs', value: 331000 },
-      { month: 'Haziran', value: 339000 }
     ]
-  },
-  v3Roadmap: [
-    { title: 'TCMB kurunu otomatik çekme', status: 'done' },
-    { title: 'Hızlı rakam güncelleme', status: 'done', note: 'Telefondan tek dokunuşla' },
-    { title: 'İngiltere seyahat bütçesi', status: 'done' },
-    { title: 'Fethiye tatil bütçesi', status: 'done' },
-    { title: 'Aylık kontrol listesi', status: 'done' },
-    { title: 'Kripto portföyü', status: 'later' },
-    { title: 'Hisse senedi takibi', status: 'later' },
-    { title: 'Eşinle ortak bütçe ekranı', status: 'later' }
-  ]
+  }
 };
 
 const STORAGE_KEY = 'finansPanelData';
-const APP_VERSION = '3.2';
+const APP_VERSION = '4.0';
 
 function cloneData(obj) {
   if (typeof structuredClone === 'function') return structuredClone(obj);
@@ -117,30 +85,42 @@ function loadData() {
       return migrateData(merged);
     }
   } catch (e) {
-    console.warn('Veri yüklenemedi, varsayılan kullanılıyor:', e);
+    console.warn('Veri yüklenemedi:', e);
   }
   return migrateData(cloneData(DEFAULT_DATA));
 }
 
 function migrateData(data) {
-  const defaults = DEFAULT_DATA;
+  const d = DEFAULT_DATA;
 
-  if (!data.income) data.income = { ...defaults.income };
-  if (!data.expenses) data.expenses = cloneData(defaults.expenses);
-  if (!data.travel) data.travel = cloneData(defaults.travel);
-  if (!data.checklist) data.checklist = { ...defaults.checklist };
+  if (!data.income) data.income = { ...d.income };
+  if (!data.savings) data.savings = { ...d.savings };
+  if (!data.expenses) data.expenses = cloneData(d.expenses);
+  if (!data.checklist) data.checklist = { ...d.checklist };
+  if (!data.goals) data.goals = { ...d.goals };
+  if (!data.creditCard) data.creditCard = { ...d.creditCard };
 
-  data.expenses.fixed = normalizeExpenseList(data.expenses.fixed, defaults.expenses.fixed);
-  data.expenses.variable = normalizeExpenseList(data.expenses.variable, defaults.expenses.variable);
+  if (data.creditCard.plannedPayment == null) {
+    data.creditCard.plannedPayment = data.creditCard.debt;
+  }
+
+  data.expenses.fixed = normalizeExpenseList(data.expenses.fixed, d.expenses.fixed);
+  data.expenses.variable = normalizeExpenseList(data.expenses.variable, d.expenses.variable);
+
+  if (data.goals.buyableUsdThisMonth != null) {
+    delete data.goals.buyableUsdThisMonth;
+  }
+  if (data.goals.emergencyFundCurrentPct != null) {
+    delete data.goals.emergencyFundCurrentPct;
+  }
+  if (data.travel) delete data.travel;
 
   resetChecklistIfNewMonth(data);
   return data;
 }
 
 function normalizeExpenseList(saved, fallback) {
-  if (!Array.isArray(saved) || saved.length === 0) {
-    return cloneData(fallback);
-  }
+  if (!Array.isArray(saved) || saved.length === 0) return cloneData(fallback);
   return saved.map((item) => ({
     name: String(item.name || 'Gider'),
     amount: Math.max(0, Number(item.amount) || 0)
@@ -148,14 +128,13 @@ function normalizeExpenseList(saved, fallback) {
 }
 
 function resetChecklistIfNewMonth(data) {
-  const now = new Date();
-  const monthKey = `${now.getFullYear()}-${now.getMonth()}`;
+  const monthKey = `${new Date().getFullYear()}-${new Date().getMonth()}`;
   if (data.meta.checklistMonth !== monthKey) {
     data.checklist = {
+      reviewExpenses: false,
       payCreditCard: false,
-      buyUsd: false,
-      payRent: false,
-      checkVisaAccount: false
+      buyMaxUsd: false,
+      updateVisaAccount: false
     };
     data.meta.checklistMonth = monthKey;
     saveData(data);
@@ -175,12 +154,8 @@ function resetData() {
 function deepMerge(target, source) {
   for (const key of Object.keys(source)) {
     if (
-      source[key] &&
-      typeof source[key] === 'object' &&
-      !Array.isArray(source[key]) &&
-      target[key] &&
-      typeof target[key] === 'object' &&
-      !Array.isArray(target[key])
+      source[key] && typeof source[key] === 'object' && !Array.isArray(source[key]) &&
+      target[key] && typeof target[key] === 'object' && !Array.isArray(target[key])
     ) {
       deepMerge(target[key], source[key]);
     } else {
@@ -195,78 +170,11 @@ function formatTL(amount) {
 }
 
 function formatUSD(amount) {
-  return '$' + amount.toLocaleString('tr-TR', { maximumFractionDigits: 0 });
+  return '$' + Math.round(amount).toLocaleString('tr-TR');
 }
 
 function formatNumber(amount) {
-  return amount.toLocaleString('tr-TR');
-}
-
-function calcTotalAssetsTL(data) {
-  const { assets, rates } = data;
-  return (
-    assets.tlCash +
-    assets.usdCash * rates.usd +
-    assets.eurCash * rates.eur +
-    assets.visaUsd * rates.usd
-  );
-}
-
-function calcNetWorth(data) {
-  return calcTotalAssetsTL(data) - data.creditCard.debt;
-}
-
-function calcVisaProgress(data) {
-  return Math.min(100, (data.assets.visaUsd / data.goals.visaTargetUsd) * 100);
-}
-
-function calcVisaScore(data) {
-  const progress = data.assets.visaUsd / data.goals.visaTargetUsd;
-  const ccRatio = data.creditCard.debt / calcTotalAssetsTL(data);
-  const emergency = data.goals.emergencyFundCurrentPct / 100;
-
-  let score = progress * 50;
-  score += Math.max(0, (1 - ccRatio) * 25);
-  score += emergency * 15;
-  score += data.history.usd.length >= 6 ? 10 : 5;
-
-  return Math.min(100, Math.round(score));
-}
-
-function getDaysUntilDue(dueDay) {
-  const now = new Date();
-  let due = new Date(now.getFullYear(), now.getMonth(), dueDay);
-  if (due < now) {
-    due = new Date(now.getFullYear(), now.getMonth() + 1, dueDay);
-  }
-  const diff = due - now;
-  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
-}
-
-function getCurrentMonthLabel() {
-  const months = [
-    'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
-    'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'
-  ];
-  const now = new Date();
-  return months[now.getMonth()] + ' ' + now.getFullYear();
-}
-
-function getRiskStatus(data) {
-  const daysLeft = getDaysUntilDue(data.creditCard.dueDay);
-  const ccDebt = data.creditCard.debt;
-  const buyable = data.goals.buyableUsdThisMonth;
-
-  if (daysLeft <= 3 && ccDebt > 50000) {
-    return { level: 'danger', label: 'Kritik' };
-  }
-  if (daysLeft <= 7 && ccDebt > 70000) {
-    return { level: 'warning', label: 'Dikkat' };
-  }
-  if (buyable < 200) {
-    return { level: 'warning', label: 'Dikkat' };
-  }
-  return { level: 'safe', label: 'Güvenli' };
+  return Math.round(amount).toLocaleString('tr-TR');
 }
 
 function getFixedTotal(data) {
@@ -277,24 +185,101 @@ function getVariableTotal(data) {
   return data.expenses.variable.reduce((s, e) => s + e.amount, 0);
 }
 
-function getEmergencyTargetTL(data) {
-  const monthly = getFixedTotal(data) + getVariableTotal(data);
-  return monthly * data.goals.emergencyFundMonths;
+function getMonthlyExpensesTotal(data) {
+  return getFixedTotal(data) + getVariableTotal(data);
 }
 
-function calcUkTravelTotalGbp(data) {
-  const uk = data.travel.uk;
-  return uk.visaFeeGbp + uk.flightGbp + uk.hotelGbp + uk.dailyGbp * uk.days;
+/**
+ * Aylık nakit akışı — birikim motorunun kalbi
+ */
+function calcMonthlyCashFlow(data) {
+  const salary = data.income?.monthlySalary || 0;
+  const fixed = getFixedTotal(data);
+  const variable = getVariableTotal(data);
+  const ccPay = data.creditCard.plannedPayment ?? data.creditCard.debt;
+  const buffer = data.savings?.tlBuffer ?? 10000;
+
+  const afterExpenses = salary - fixed - variable;
+  const afterCard = afterExpenses - ccPay;
+  const savableTl = afterCard - buffer;
+
+  return { salary, fixed, variable, ccPay, buffer, afterExpenses, afterCard, savableTl };
 }
 
-function calcUkTravelTotalTl(data) {
-  const gbpRate = data.rates.gbp || data.rates.usd * 1.27;
-  return calcUkTravelTotalGbp(data) * gbpRate;
+function calcMaxSavableUsd(data) {
+  const { savableTl } = calcMonthlyCashFlow(data);
+  if (savableTl <= 0 || !data.rates.usd) return 0;
+  return Math.floor(savableTl / data.rates.usd);
 }
 
-function calcFethiyeProgress(data) {
-  const f = data.travel.fethiye;
-  return Math.min(100, (f.savedTl / f.targetTl) * 100);
+function calcVisaRoom(data) {
+  return Math.max(0, data.goals.visaTargetUsd - data.assets.visaUsd);
+}
+
+function calcRecommendedUsd(data) {
+  const max = calcMaxSavableUsd(data);
+  const room = calcVisaRoom(data);
+  if (room === 0) return max;
+  return Math.min(max, room);
+}
+
+function calcUsdFromTl(tl, data) {
+  if (!data.rates.usd || tl <= 0) return 0;
+  return Math.floor(tl / data.rates.usd);
+}
+
+function calcVisaProgress(data) {
+  return Math.min(100, (data.assets.visaUsd / data.goals.visaTargetUsd) * 100);
+}
+
+function getDaysUntilDue(dueDay) {
+  const now = new Date();
+  let due = new Date(now.getFullYear(), now.getMonth(), dueDay);
+  if (due < now) due = new Date(now.getFullYear(), now.getMonth() + 1, dueDay);
+  return Math.max(0, Math.ceil((due - now) / (1000 * 60 * 60 * 24)));
+}
+
+function getCurrentMonthLabel() {
+  const months = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+  return months[new Date().getMonth()] + ' ' + new Date().getFullYear();
+}
+
+function getRiskStatus(data) {
+  const daysLeft = getDaysUntilDue(data.creditCard.dueDay);
+  const maxUsd = calcRecommendedUsd(data);
+  const { savableTl } = calcMonthlyCashFlow(data);
+
+  if (daysLeft <= 3 && data.creditCard.debt > 50000) {
+    return { level: 'danger', label: 'Kritik' };
+  }
+  if (savableTl < 0 || maxUsd < 100) {
+    return { level: 'warning', label: 'Sıkı' };
+  }
+  if (daysLeft <= 7 && data.creditCard.debt > 70000) {
+    return { level: 'warning', label: 'Dikkat' };
+  }
+  return { level: 'safe', label: 'Uygun' };
+}
+
+function getExpenseCutTips(data) {
+  const tips = [];
+  const variable = data.expenses.variable;
+
+  variable.forEach((exp) => {
+    if (exp.amount < 500) return;
+    const cut10 = Math.round(exp.amount * 0.1);
+    const usdGain = calcUsdFromTl(cut10, data);
+    if (usdGain >= 5) {
+      tips.push({
+        name: exp.name,
+        cutTl: cut10,
+        usdGain,
+        text: `${exp.name}'i ${formatTL(cut10)} azaltırsan +${usdGain} USD`
+      });
+    }
+  });
+
+  return tips.sort((a, b) => b.usdGain - a.usdGain).slice(0, 3);
 }
 
 function getMonthlyChecklistProgress(data) {
@@ -303,20 +288,10 @@ function getMonthlyChecklistProgress(data) {
   return { done, total: items.length, pct: Math.round((done / items.length) * 100) };
 }
 
-function getMonthlyExpensesTotal(data) {
-  return getFixedTotal(data) + getVariableTotal(data);
-}
-
-function calcSuggestedBuyableUsd(data) {
-  const salary = data.income?.monthlySalary || 0;
-  const expenses = getMonthlyExpensesTotal(data);
-  const ccReserve = data.creditCard.debt * 0.15;
-  const availableTl = salary - expenses - ccReserve;
-  if (availableTl <= 0 || !data.rates.usd) return 0;
-  return Math.max(0, Math.floor(availableTl / data.rates.usd));
-}
-
-function calcRemainingAfterExpenses(data) {
-  const salary = data.income?.monthlySalary || 0;
-  return salary - getMonthlyExpensesTotal(data);
+function monthsToVisaGoal(data) {
+  const room = calcVisaRoom(data);
+  const monthly = calcRecommendedUsd(data);
+  if (room <= 0) return 0;
+  if (monthly <= 0) return null;
+  return Math.ceil(room / monthly);
 }

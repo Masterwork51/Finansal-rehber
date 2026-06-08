@@ -1,30 +1,22 @@
-# Finans Paneli
+# Birikim Hesaplayıcı
 
-Kişisel finans uygulaman — telefondan açılır, bilgisayar gerekmez.
+**Ana soru:** Bu ay max kaç dolar biriktirebilirsin?
 
 ## Telefonda Aç
 
-Detaylı anlatım: **[TELEFONA-AC.md](TELEFONA-AC.md)**
+**https://masterwork51.github.io/Finansal-rehber/**
 
-**Özet:** Bir kez [şu ayarı](https://github.com/Masterwork51/Finansal-rehber/settings/pages) yap → branch olarak `gh-pages` seç → kaydet.
+Üstte **v4.0** yazısını gör. Ana ekrana ekle.
 
-Sonra telefondan aç: **https://masterwork51.github.io/Finansal-rehber/**
+## Nasıl Çalışır?
 
-Ana ekrana ekle → her gün ikondan aç.
+```
+Maaş − Sabit giderler − Değişken giderler − Kart ödemesi − Güvenlik payı = Kalan TL
+Kalan TL ÷ USD kuru = Max biriktirebileceğin dolar
+```
 
-## Ne Yapar?
+Giderleri **Düzenle**'den değiştir → max dolar otomatik güncellenir.
 
-- Vize hesabı ve 5.000 USD hedefini takip eder
-- Kredi kartı borcunu ve son ödeme tarihini hatırlatır
-- Bu ay ne kadar dolar alabileceğini gösterir
-- TCMB kurlarını otomatik günceller
-- İngiltere seyahat ve Fethiye tatil bütçesini hesaplar
-- Akıllı tavsiyeler verir
+## Güncelle
 
-## Rakamları Güncellemek
-
-Sağ üstteki **Güncelle** butonuna bas. Banka uygulamasından baktığın rakamları yaz, kaydet. Başka bir şey yapmana gerek yok.
-
-## Teknik Not
-
-GitHub Pages üzerinde yayınlanır. Verilerin sadece senin telefonunda saklanır.
+Sağ üst **Güncelle**: maaş, vize USD, kart borcu, bu ay ödeyeceğin tutar.
