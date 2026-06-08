@@ -8,7 +8,7 @@ const AdviceEngine = {
     const tips = [];
     const visaUsd = data.assets.visaUsd;
     const visaTarget = data.goals.visaTargetUsd;
-    const remaining = visaTarget - visaUsd;
+    const visaRemaining = visaTarget - visaUsd;
     const buyable = data.goals.buyableUsdThisMonth;
     const ccDebt = data.creditCard.debt;
     const daysLeft = getDaysUntilDue(data.creditCard.dueDay);
@@ -30,12 +30,12 @@ const AdviceEngine = {
     }
 
     // Vize hedefi yakınlığı
-    if (remaining > 0 && remaining <= 700) {
+    if (visaRemaining > 0 && visaRemaining <= 700) {
       tips.push({
         priority: 1,
-        text: `${formatUSD(visaTarget)} hedefi için yalnızca ${formatUSD(remaining)} eksik. Önümüzdeki iki maaş döneminde bu hedefe ulaşabilirsin.`
+        text: `${formatUSD(visaTarget)} hedefi için yalnızca ${formatUSD(visaRemaining)} eksik. Önümüzdeki iki maaş döneminde bu hedefe ulaşabilirsin.`
       });
-    } else if (remaining <= 0) {
+    } else if (visaRemaining <= 0) {
       tips.push({
         priority: 1,
         text: `Tebrikler! Vize hesabın ${formatUSD(visaUsd)} ile hedefin üzerinde. Son 3 ay düzenli giriş göstermek için hesabı aktif tut.`
@@ -56,10 +56,10 @@ const AdviceEngine = {
         priority: 2,
         text: `Vize gücü skorun ${score}/100. Banka hesabında en az 3 ay düzenli maaş girişi ve ${formatUSD(visaTarget)} üzeri bakiye konsolosluk için güçlü sinyal verir.`
       });
-    } else if (score >= 80 && remaining > 0) {
+    } else if (score >= 80 && visaRemaining > 0) {
       tips.push({
         priority: 3,
-        text: `Skorun ${score}/100 — iyi durumdasın. ${formatUSD(remaining)} daha biriktirerek hesabı 5.000 USD üzerine çıkarman başvuruyu güçlendirir.`
+        text: `Skorun ${score}/100 — iyi durumdasın. ${formatUSD(visaRemaining)} daha biriktirerek hesabı 5.000 USD üzerine çıkarman başvuruyu güçlendirir.`
       });
     }
 
@@ -84,8 +84,23 @@ const AdviceEngine = {
       });
     }
 
+    // Maaş-gider dengesi
+    const budgetRemaining = calcRemainingAfterExpenses(data);
+    const suggested = calcSuggestedBuyableUsd(data);
+    if (budgetRemaining < 0) {
+      tips.push({
+        priority: 1,
+        text: `Giderlerin maaşını ${formatTL(Math.abs(budgetRemaining))} aşıyor. Harcama kalemlerini gözden geçir veya değişken giderleri kıs.`
+      });
+    } else if (suggested > 0 && buyable > suggested + 100) {
+      tips.push({
+        priority: 3,
+        text: `Giderlere göre güvenli dolar alımı yaklaşık ${formatUSD(suggested)}. Şu anki planın (${formatUSD(buyable)}) biraz agresif görünüyor.`
+      });
+    }
+
     // Düşük alım kapasitesi
-    if (buyable < 300 && remaining > 0) {
+    if (buyable < 300 && visaRemaining > 0) {
       tips.push({
         priority: 2,
         text: `Bu ay alınabilir dolar (${formatUSD(buyable)}) düşük. Sabit giderleri gözden geçirerek gelecek ay birikim kapasiteni artırabilirsin.`
