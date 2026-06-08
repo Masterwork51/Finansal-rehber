@@ -92,6 +92,26 @@ const AdviceEngine = {
       });
     }
 
+    // İngiltere seyahat bütçesi
+    const ukTotalTl = calcUkTravelTotalTl(data);
+    const ukSaved = data.travel.uk.savedTl;
+    const ukGap = ukTotalTl - ukSaved;
+    if (ukGap > 0 && ukGap < ukTotalTl * 0.5) {
+      tips.push({
+        priority: 3,
+        text: `İngiltere seyahat bütçene ${formatTL(ukGap)} kaldı. Vize hedefinle birlikte planlarsan ikisini de örtüşen tarihlerde tamamlayabilirsin.`
+      });
+    }
+
+    // Kontrol listesi
+    const checklist = getMonthlyChecklistProgress(data);
+    if (checklist.done < checklist.total && daysLeft <= 10) {
+      tips.push({
+        priority: 2,
+        text: `Bu ayın kontrol listesinde ${checklist.total - checklist.done} iş kaldı. Kart ödemesi ve dolar alımını takvime not et.`
+      });
+    }
+
     // Varsayılan pozitif mesaj
     if (tips.length === 0) {
       tips.push({

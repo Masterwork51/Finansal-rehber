@@ -1,4 +1,4 @@
-/* Finans Paneli V2 — Mobile-first PWA */
+/* Finans Paneli V3 — Mobile-first PWA */
 
 :root {
   --bg: #0b0f1a;
@@ -131,6 +131,80 @@ body::before {
   color: var(--text-muted);
   margin-top: 2px;
 }
+
+.btn-update {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: var(--font);
+  cursor: pointer;
+}
+
+.btn-update:active { opacity: 0.85; }
+
+.rates-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-sm);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+}
+
+.rates-bar span { color: var(--text-muted); }
+.rates-source { margin-left: auto; font-family: var(--font); font-size: 0.68rem; }
+
+.install-banner {
+  position: fixed;
+  bottom: calc(var(--nav-h) + var(--safe-bottom) + 8px);
+  left: 12px;
+  right: 12px;
+  max-width: 456px;
+  margin: 0 auto;
+  background: var(--bg-card);
+  border: 1px solid rgba(59, 158, 255, 0.35);
+  border-radius: var(--radius);
+  padding: 12px 40px 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 150;
+  box-shadow: var(--shadow);
+}
+
+.install-banner.hidden { display: none; }
+
+.install-banner-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.78rem;
+}
+
+.install-banner-text strong { font-size: 0.85rem; }
+.install-banner-text span { color: var(--text-muted); }
+
+.install-close {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.2rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.btn.small { padding: 8px 14px; font-size: 0.8rem; flex: none; }
 
 .icon-btn {
   width: 40px;
@@ -659,6 +733,179 @@ body::before {
   color: var(--accent);
   font-weight: 600;
   white-space: nowrap;
+}
+
+.v3-badge.done {
+  background: var(--success-dim);
+  color: var(--success);
+}
+
+/* Checklist */
+.checklist-card { border-color: rgba(59, 158, 255, 0.2); }
+
+.checklist-pct {
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.checklist { list-style: none; }
+
+.check-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.check-item:last-child { border-bottom: none; }
+
+.check-item input { position: absolute; opacity: 0; width: 0; height: 0; }
+
+.check-box {
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--text-muted);
+  border-radius: 6px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.check-item input:checked + .check-box {
+  background: var(--success);
+  border-color: var(--success);
+}
+
+.check-item input:checked + .check-box::after {
+  content: '✓';
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.check-item input:checked ~ span:last-child {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+/* Travel */
+.travel-card { border-color: rgba(167, 139, 250, 0.25); }
+
+.travel-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: var(--visa-dim);
+  border-radius: var(--radius-sm);
+  margin-bottom: 12px;
+}
+
+.travel-total strong {
+  font-family: var(--mono);
+  font-size: 0.9rem;
+  color: var(--visa);
+}
+
+.travel-breakdown {
+  list-style: none;
+  margin-bottom: 12px;
+}
+
+.travel-breakdown li {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.travel-saved {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+}
+
+.travel-saved strong { font-family: var(--mono); color: var(--success); }
+
+.travel-gap {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
+.fethiye-card { border-color: rgba(59, 158, 255, 0.2); }
+.fethiye-stats { margin-bottom: 10px; }
+
+/* Quick form */
+.modal-desc {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+.quick-form { display: flex; flex-direction: column; gap: 12px; }
+
+.quick-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.quick-field span {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.quick-field input {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-elevated);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 1.1rem;
+}
+
+.advanced-link {
+  display: block;
+  text-align: center;
+  margin-top: 14px;
+  width: 100%;
+}
+
+/* Install help */
+.install-steps { margin-bottom: 16px; }
+
+.steps-list {
+  padding-left: 20px;
+  font-size: 0.9rem;
+  line-height: 1.7;
+}
+
+.install-url-label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.install-url {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  word-break: break-all;
+  background: var(--bg-elevated);
+  padding: 10px;
+  border-radius: 8px;
+  margin-bottom: 12px;
 }
 
 /* Bottom Nav */

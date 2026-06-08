@@ -29,12 +29,26 @@
     <header class="header">
       <div class="header-top">
         <h1>Finans Paneli</h1>
-        <button type="button" class="icon-btn" id="btn-settings" aria-label="Ayarlar">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
-        </button>
+        <button type="button" class="btn-update" id="btn-quick-update">Güncelle</button>
       </div>
       <p class="header-month" id="current-month">Haziran 2026</p>
+      <div class="rates-bar" id="rates-bar">
+        <span id="rate-usd">USD —</span>
+        <span id="rate-eur">EUR —</span>
+        <span id="rate-gbp">GBP —</span>
+        <span class="rates-source" id="rates-source">Kur yükleniyor…</span>
+      </div>
     </header>
+
+    <!-- Telefona ekle banner -->
+    <div class="install-banner hidden" id="install-banner">
+      <div class="install-banner-text">
+        <strong>Telefona uygulama gibi ekle</strong>
+        <span id="install-hint">Ana ekrana ekleyince her zaman buradan açarsın.</span>
+      </div>
+      <button type="button" class="btn primary small" id="btn-install-help">Nasıl?</button>
+      <button type="button" class="install-close" id="btn-dismiss-install" aria-label="Kapat">&times;</button>
+    </div>
 
     <main class="main">
       <!-- Hero: Net Worth -->
@@ -61,6 +75,15 @@
             </span>
           </div>
         </div>
+      </section>
+
+      <!-- Monthly Checklist -->
+      <section class="card checklist-card" aria-labelledby="checklist-title">
+        <div class="card-header">
+          <h2 id="checklist-title">Bu Ay Yapılacaklar</h2>
+          <span class="checklist-pct" id="checklist-pct">0%</span>
+        </div>
+        <ul class="checklist" id="checklist"></ul>
       </section>
 
       <!-- Smart Advice -->
@@ -176,6 +199,34 @@
         <div class="goals-list" id="goals-list"></div>
       </section>
 
+      <!-- UK Travel Budget -->
+      <section class="card travel-card" aria-labelledby="uk-travel-title">
+        <h2 id="uk-travel-title">İngiltere Seyahat Bütçesi</h2>
+        <p class="section-desc">Vize başvurusu ve seyahat için tahmini maliyet</p>
+        <div class="travel-total">
+          <span>Toplam Tahmin</span>
+          <strong id="uk-total">—</strong>
+        </div>
+        <ul class="travel-breakdown" id="uk-breakdown"></ul>
+        <div class="travel-saved">
+          <span>Biriktirilen</span>
+          <strong id="uk-saved">—</strong>
+        </div>
+        <div class="goal-progress"><div class="goal-progress-fill visa" id="uk-progress"></div></div>
+        <p class="travel-gap" id="uk-gap"></p>
+      </section>
+
+      <!-- Fethiye Budget -->
+      <section class="card fethiye-card" aria-labelledby="fethiye-title">
+        <h2 id="fethiye-title">Fethiye Tatil Bütçesi</h2>
+        <div class="goal-stats fethiye-stats">
+          <div class="goal-stat"><span>Hedef</span><strong id="fethiye-target">—</strong></div>
+          <div class="goal-stat"><span>Biriken</span><strong id="fethiye-saved">—</strong></div>
+          <div class="goal-stat"><span>Kalan</span><strong id="fethiye-remaining">—</strong></div>
+        </div>
+        <div class="goal-progress"><div class="goal-progress-fill emergency" id="fethiye-progress"></div></div>
+      </section>
+
       <!-- Charts -->
       <section class="card" aria-labelledby="charts-title">
         <h2 id="charts-title">Grafikler</h2>
@@ -193,10 +244,10 @@
         </div>
       </section>
 
-      <!-- V3 Roadmap -->
+      <!-- Roadmap -->
       <section class="card v3-card" aria-labelledby="v3-title">
-        <h2 id="v3-title">V3 Yol Haritası</h2>
-        <p class="section-desc">Yakında eklenecek özellikler</p>
+        <h2 id="v3-title">Gelecek Özellikler</h2>
+        <p class="section-desc">Sıradaki geliştirmeler</p>
         <ul class="v3-list" id="v3-list"></ul>
       </section>
     </main>
@@ -220,19 +271,55 @@
       </button>
     </nav>
 
-    <!-- Settings Modal -->
+    <!-- Quick Update Modal -->
+    <dialog id="quick-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Rakamları Güncelle</h2>
+          <button type="button" class="icon-btn modal-close" aria-label="Kapat">&times;</button>
+        </div>
+        <p class="modal-desc">Banka uygulamasından baktığın rakamları buraya yaz. Başka bir şey yapmana gerek yok.</p>
+        <form id="quick-form" class="quick-form">
+          <label class="quick-field">
+            <span>Vize hesabındaki dolar</span>
+            <input type="number" name="visaUsd" inputmode="decimal" min="0" placeholder="4350">
+          </label>
+          <label class="quick-field">
+            <span>Kredi kartı borcu (TL)</span>
+            <input type="number" name="ccDebt" inputmode="decimal" min="0" placeholder="82000">
+          </label>
+          <label class="quick-field">
+            <span>Eldeki TL nakit</span>
+            <input type="number" name="tlCash" inputmode="decimal" min="0" placeholder="70000">
+          </label>
+          <label class="quick-field">
+            <span>Bu ay alabileceğin dolar</span>
+            <input type="number" name="buyableUsd" inputmode="decimal" min="0" placeholder="452">
+          </label>
+          <label class="quick-field">
+            <span>İngiltere için biriktirdiğin (TL)</span>
+            <input type="number" name="ukSaved" inputmode="decimal" min="0" placeholder="0">
+          </label>
+          <label class="quick-field">
+            <span>Fethiye için biriktirdiğin (TL)</span>
+            <input type="number" name="fethiyeSaved" inputmode="decimal" min="0" placeholder="7200">
+          </label>
+          <div class="modal-actions">
+            <button type="submit" class="btn primary">Kaydet</button>
+          </div>
+        </form>
+        <button type="button" class="text-btn advanced-link" id="btn-advanced">Tüm ayarlar →</button>
+      </div>
+    </dialog>
+
+    <!-- Advanced Settings Modal -->
     <dialog id="settings-modal" class="modal">
       <div class="modal-content">
         <div class="modal-header">
-          <h2>Ayarlar</h2>
+          <h2>Tüm Ayarlar</h2>
           <button type="button" class="icon-btn modal-close" aria-label="Kapat">&times;</button>
         </div>
         <form id="settings-form" class="settings-form">
-          <fieldset>
-            <legend>Döviz Kurları (TL)</legend>
-            <label>USD <input type="number" name="rateUsd" step="0.01" min="0"></label>
-            <label>EUR <input type="number" name="rateEur" step="0.01" min="0"></label>
-          </fieldset>
           <fieldset>
             <legend>Varlıklar</legend>
             <label>TL Nakit <input type="number" name="tlCash" min="0"></label>
@@ -249,17 +336,37 @@
             <legend>Hedefler</legend>
             <label>Vize Hedefi (USD) <input type="number" name="visaGoal" min="0"></label>
             <label>Bu Ay Alınabilir USD <input type="number" name="buyableUsd" min="0"></label>
+            <label>Acil Fon % <input type="number" name="emergencyPct" min="0" max="100"></label>
+          </fieldset>
+          <fieldset>
+            <legend>Fethiye Hedefi (TL)</legend>
+            <label>Hedef <input type="number" name="fethiyeTarget" min="0"></label>
           </fieldset>
           <div class="modal-actions">
-            <button type="button" class="btn secondary" id="btn-reset-data">Varsayılana Dön</button>
+            <button type="button" class="btn secondary" id="btn-reset-data">Sıfırla</button>
             <button type="submit" class="btn primary">Kaydet</button>
           </div>
         </form>
       </div>
     </dialog>
+
+    <!-- Install Help Modal -->
+    <dialog id="install-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Telefona Nasıl Eklenir?</h2>
+          <button type="button" class="icon-btn modal-close" aria-label="Kapat">&times;</button>
+        </div>
+        <div class="install-steps" id="install-steps"></div>
+        <p class="install-url-label">Bu linki kaydet:</p>
+        <p class="install-url" id="install-url"></p>
+        <button type="button" class="btn primary" id="btn-copy-url">Linki Kopyala</button>
+      </div>
+    </dialog>
   </div>
 
   <script src="js/data.js"></script>
+  <script src="js/rates.js"></script>
   <script src="js/advice.js"></script>
   <script src="js/charts.js"></script>
   <script src="js/app.js"></script>

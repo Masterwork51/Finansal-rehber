@@ -5,12 +5,15 @@
 
 const DEFAULT_DATA = {
   meta: {
-    version: 2,
+    version: 3,
     lastUpdated: null
   },
   rates: {
     usd: 34.50,
-    eur: 37.20
+    eur: 37.20,
+    gbp: 43.80,
+    updated: null,
+    source: 'TCMB'
   },
   assets: {
     tlCash: 70000,
@@ -44,6 +47,26 @@ const DEFAULT_DATA = {
     emergencyFundMonths: 6,
     emergencyFundCurrentPct: 48
   },
+  travel: {
+    uk: {
+      visaFeeGbp: 150,
+      flightGbp: 800,
+      hotelGbp: 700,
+      dailyGbp: 50,
+      days: 7,
+      savedTl: 0
+    },
+    fethiye: {
+      targetTl: 15000,
+      savedTl: 7200
+    }
+  },
+  checklist: {
+    payCreditCard: false,
+    buyUsd: false,
+    payRent: false,
+    checkVisaAccount: false
+  },
   history: {
     usd: [
       { month: 'Ocak', value: 3200 },
@@ -63,14 +86,14 @@ const DEFAULT_DATA = {
     ]
   },
   v3Roadmap: [
-    { title: 'TCMB kurunu otomatik çekme', status: 'planned' },
-    { title: 'VakıfBank hesap entegrasyonu', status: 'planned', note: 'Manuel veri girişiyle' },
-    { title: 'Kripto portföyü', status: 'planned' },
-    { title: 'Hisse senedi takibi', status: 'planned' },
-    { title: 'Emeklilik hesabı', status: 'planned' },
-    { title: 'İngiltere seyahat bütçesi', status: 'planned' },
-    { title: 'Fethiye tatil bütçesi', status: 'planned' },
-    { title: 'Eşinle ortak bütçe ekranı', status: 'planned' }
+    { title: 'TCMB kurunu otomatik çekme', status: 'done' },
+    { title: 'Hızlı rakam güncelleme', status: 'done', note: 'Telefondan tek dokunuşla' },
+    { title: 'İngiltere seyahat bütçesi', status: 'done' },
+    { title: 'Fethiye tatil bütçesi', status: 'done' },
+    { title: 'Aylık kontrol listesi', status: 'done' },
+    { title: 'Kripto portföyü', status: 'later' },
+    { title: 'Hisse senedi takibi', status: 'later' },
+    { title: 'Eşinle ortak bütçe ekranı', status: 'later' }
   ]
 };
 
@@ -207,4 +230,25 @@ function getVariableTotal(data) {
 function getEmergencyTargetTL(data) {
   const monthly = getFixedTotal(data) + getVariableTotal(data);
   return monthly * data.goals.emergencyFundMonths;
+}
+
+function calcUkTravelTotalGbp(data) {
+  const uk = data.travel.uk;
+  return uk.visaFeeGbp + uk.flightGbp + uk.hotelGbp + uk.dailyGbp * uk.days;
+}
+
+function calcUkTravelTotalTl(data) {
+  const gbpRate = data.rates.gbp || data.rates.usd * 1.27;
+  return calcUkTravelTotalGbp(data) * gbpRate;
+}
+
+function calcFethiyeProgress(data) {
+  const f = data.travel.fethiye;
+  return Math.min(100, (f.savedTl / f.targetTl) * 100);
+}
+
+function getMonthlyChecklistProgress(data) {
+  const items = Object.values(data.checklist);
+  const done = items.filter(Boolean).length;
+  return { done, total: items.length, pct: Math.round((done / items.length) * 100) };
 }
