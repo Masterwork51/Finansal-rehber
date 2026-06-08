@@ -2,15 +2,15 @@
 
 Kişisel finans uygulaman — telefondan açılır, bilgisayar gerekmez.
 
-## Telefonda Aç (3 adım)
+## Telefonda Aç
 
-1. Telefonundan şu linki aç:  
-   **https://masterwork51.github.io/Finansal-rehber/**
+Detaylı anlatım: **[TELEFONA-AC.md](TELEFONA-AC.md)**
 
-2. **iPhone:** Safari → Paylaş → Ana Ekrana Ekle  
-   **Android:** Chrome → menü (⋮) → Ana ekrana ekle
+**Özet:** Bir kez [şu ayarı](https://github.com/Masterwork51/Finansal-rehber/settings/pages) yap → branch olarak `gh-pages` seç → kaydet.
 
-3. Ana ekrandaki ikona dokun — uygulama gibi açılır.
+Sonra telefondan aç: **https://masterwork51.github.io/Finansal-rehber/**
+
+Ana ekrana ekle → her gün ikondan aç.
 
 ## Ne Yapar?
 
