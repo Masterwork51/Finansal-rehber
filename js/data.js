@@ -101,27 +101,33 @@ const DEFAULT_DATA = {
 };
 
 const STORAGE_KEY = 'finansPanelData';
+const APP_VERSION = '3.2';
+
+function cloneData(obj) {
+  if (typeof structuredClone === 'function') return structuredClone(obj);
+  return JSON.parse(JSON.stringify(obj));
+}
 
 function loadData() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      const merged = deepMerge(structuredClone(DEFAULT_DATA), parsed);
+      const merged = deepMerge(cloneData(DEFAULT_DATA), parsed);
       return migrateData(merged);
     }
   } catch (e) {
     console.warn('Veri yüklenemedi, varsayılan kullanılıyor:', e);
   }
-  return migrateData(structuredClone(DEFAULT_DATA));
+  return migrateData(cloneData(DEFAULT_DATA));
 }
 
 function migrateData(data) {
   const defaults = DEFAULT_DATA;
 
   if (!data.income) data.income = { ...defaults.income };
-  if (!data.expenses) data.expenses = structuredClone(defaults.expenses);
-  if (!data.travel) data.travel = structuredClone(defaults.travel);
+  if (!data.expenses) data.expenses = cloneData(defaults.expenses);
+  if (!data.travel) data.travel = cloneData(defaults.travel);
   if (!data.checklist) data.checklist = { ...defaults.checklist };
 
   data.expenses.fixed = normalizeExpenseList(data.expenses.fixed, defaults.expenses.fixed);
@@ -133,7 +139,7 @@ function migrateData(data) {
 
 function normalizeExpenseList(saved, fallback) {
   if (!Array.isArray(saved) || saved.length === 0) {
-    return structuredClone(fallback);
+    return cloneData(fallback);
   }
   return saved.map((item) => ({
     name: String(item.name || 'Gider'),
@@ -163,7 +169,7 @@ function saveData(data) {
 
 function resetData() {
   localStorage.removeItem(STORAGE_KEY);
-  return structuredClone(DEFAULT_DATA);
+  return cloneData(DEFAULT_DATA);
 }
 
 function deepMerge(target, source) {

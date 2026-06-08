@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/styles.css?v=3.2">
 </head>
 <body>
   <div id="app">
@@ -31,7 +31,7 @@
         <h1>Finans Paneli</h1>
         <button type="button" class="btn-update" id="btn-quick-update">Güncelle</button>
       </div>
-      <p class="header-month" id="current-month">Haziran 2026</p>
+      <p class="header-month"><span id="current-month">Haziran 2026</span> · <span class="app-version">v3.2</span></p>
       <div class="rates-bar" id="rates-bar">
         <span id="rate-usd">USD —</span>
         <span id="rate-eur">EUR —</span>
@@ -118,25 +118,54 @@
       </section>
 
       <!-- Expenses -->
-      <section class="card" aria-labelledby="expenses-title">
+      <section class="card" aria-labelledby="expenses-title" id="expenses-section">
         <div class="card-header">
           <h2 id="expenses-title">Borçlar ve Giderler</h2>
           <button type="button" class="text-btn" id="btn-edit-expenses">Düzenle</button>
         </div>
         <p class="budget-summary" id="budget-summary">—</p>
-        <div class="expense-groups">
-          <div class="expense-group">
-            <h3>Sabit Giderler</h3>
-            <ul class="expense-list editable-list" id="fixed-expenses"></ul>
-            <p class="expense-subtotal">Aylık: <strong id="fixed-total">—</strong></p>
+
+        <!-- Görüntüleme modu -->
+        <div id="expenses-view">
+          <div class="expense-groups">
+            <div class="expense-group">
+              <h3>Sabit Giderler</h3>
+              <ul class="expense-list editable-list" id="fixed-expenses"></ul>
+              <p class="expense-subtotal">Aylık: <strong id="fixed-total">—</strong></p>
+            </div>
+            <div class="expense-group">
+              <h3>Değişken Giderler</h3>
+              <ul class="expense-list editable-list" id="variable-expenses"></ul>
+              <p class="expense-subtotal">Tahmini: <strong id="variable-total">—</strong></p>
+            </div>
           </div>
-          <div class="expense-group">
-            <h3>Değişken Giderler</h3>
-            <ul class="expense-list editable-list" id="variable-expenses"></ul>
-            <p class="expense-subtotal">Tahmini: <strong id="variable-total">—</strong></p>
-          </div>
+          <p class="expense-grand-total">Toplam gider: <strong id="monthly-total">—</strong></p>
         </div>
-        <p class="expense-grand-total">Toplam gider: <strong id="monthly-total">—</strong></p>
+
+        <!-- Düzenleme modu (sayfa içinde, modal yok) -->
+        <div id="expenses-edit" class="hidden">
+          <p class="modal-desc">Tutarları değiştir, kaydet'e bas.</p>
+          <form id="expenses-inline-form">
+            <fieldset>
+              <legend>Sabit Giderler</legend>
+              <div id="fixed-expenses-editor"></div>
+              <button type="button" class="btn-add" data-type="fixed">+ Sabit gider ekle</button>
+            </fieldset>
+            <fieldset>
+              <legend>Değişken Giderler</legend>
+              <div id="variable-expenses-editor"></div>
+              <button type="button" class="btn-add" data-type="variable">+ Değişken gider ekle</button>
+            </fieldset>
+            <label class="quick-field">
+              <span>Aylık maaş (TL)</span>
+              <input type="number" name="monthlySalary" inputmode="decimal" min="0">
+            </label>
+            <div class="inline-edit-actions">
+              <button type="button" class="btn secondary" id="btn-cancel-expenses">İptal</button>
+              <button type="submit" class="btn primary">Kaydet</button>
+            </div>
+          </form>
+        </div>
       </section>
 
       <!-- Credit Card -->
@@ -286,7 +315,7 @@
     </nav>
 
     <!-- Quick Update Modal -->
-    <dialog id="quick-modal" class="modal">
+    <div id="quick-modal" class="modal-sheet" aria-hidden="true">
       <div class="modal-content">
         <div class="modal-header">
           <h2>Rakamları Güncelle</h2>
@@ -337,10 +366,10 @@
         </form>
         <button type="button" class="text-btn advanced-link" id="btn-advanced">Tüm ayarlar →</button>
       </div>
-    </dialog>
+    </div>
 
     <!-- Advanced Settings Modal -->
-    <dialog id="settings-modal" class="modal">
+    <div id="settings-modal" class="modal-sheet" aria-hidden="true">
       <div class="modal-content">
         <div class="modal-header">
           <h2>Tüm Ayarlar</h2>
@@ -379,43 +408,10 @@
           </div>
         </form>
       </div>
-    </dialog>
-
-    <!-- Expenses Modal -->
-    <dialog id="expenses-modal" class="modal">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2>Giderleri Düzenle</h2>
-          <button type="button" class="icon-btn modal-close" aria-label="Kapat">&times;</button>
-        </div>
-        <p class="modal-desc">Her satıra dokunup tutarı değiştir. İsim ve tutarları güncelleyebilirsin.</p>
-        <form id="expenses-form" class="editor-form">
-          <fieldset>
-            <legend>Sabit Giderler</legend>
-            <div id="fixed-expenses-editor"></div>
-            <button type="button" class="btn-add" data-type="fixed">+ Sabit gider ekle</button>
-          </fieldset>
-          <fieldset>
-            <legend>Değişken Giderler</legend>
-            <div id="variable-expenses-editor"></div>
-            <button type="button" class="btn-add" data-type="variable">+ Değişken gider ekle</button>
-          </fieldset>
-          <fieldset>
-            <legend>Gelir</legend>
-            <label class="quick-field">
-              <span>Aylık maaş (TL)</span>
-              <input type="number" name="monthlySalary" inputmode="decimal" min="0">
-            </label>
-          </fieldset>
-          <div class="modal-actions">
-            <button type="submit" class="btn primary">Kaydet</button>
-          </div>
-        </form>
-      </div>
-    </dialog>
+    </div>
 
     <!-- UK Travel Modal -->
-    <dialog id="uk-modal" class="modal">
+    <div id="uk-modal" class="modal-sheet" aria-hidden="true">
       <div class="modal-content">
         <div class="modal-header">
           <h2>İngiltere Bütçesi</h2>
@@ -431,10 +427,10 @@
           <div class="modal-actions"><button type="submit" class="btn primary">Kaydet</button></div>
         </form>
       </div>
-    </dialog>
+    </div>
 
     <!-- Fethiye Modal -->
-    <dialog id="fethiye-modal" class="modal">
+    <div id="fethiye-modal" class="modal-sheet" aria-hidden="true">
       <div class="modal-content">
         <div class="modal-header">
           <h2>Fethiye Bütçesi</h2>
@@ -446,10 +442,10 @@
           <div class="modal-actions"><button type="submit" class="btn primary">Kaydet</button></div>
         </form>
       </div>
-    </dialog>
+    </div>
 
     <!-- Install Help Modal -->
-    <dialog id="install-modal" class="modal">
+    <div id="install-modal" class="modal-sheet" aria-hidden="true">
       <div class="modal-content">
         <div class="modal-header">
           <h2>Telefona Nasıl Eklenir?</h2>
@@ -460,13 +456,14 @@
         <p class="install-url" id="install-url"></p>
         <button type="button" class="btn primary" id="btn-copy-url">Linki Kopyala</button>
       </div>
-    </dialog>
+    </div>
   </div>
 
-  <script src="js/data.js"></script>
-  <script src="js/rates.js"></script>
-  <script src="js/advice.js"></script>
-  <script src="js/charts.js"></script>
-  <script src="js/app.js"></script>
+  <script src="js/data.js?v=3.2"></script>
+  <script src="js/modal.js?v=3.2"></script>
+  <script src="js/rates.js?v=3.2"></script>
+  <script src="js/advice.js?v=3.2"></script>
+  <script src="js/charts.js?v=3.2"></script>
+  <script src="js/app.js?v=3.2"></script>
 </body>
 </html>
