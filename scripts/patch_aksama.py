@@ -2,6 +2,7 @@
 """Patch aksama-panosu.html from clean PDF base."""
 import json
 import re
+import subprocess
 from pathlib import Path
 
 import jsbeautifier
@@ -110,6 +111,11 @@ function clearInputFeedback() {
     box.style.display = 'none';
     box.innerHTML = '';
   }
+}
+
+function markScriptReady() {
+  const health = document.getElementById('scriptHealth');
+  if (health) health.style.display = 'none';
 }
 
 function attachInputFeedbackHandlers() {
@@ -369,13 +375,24 @@ if 'function renderActionSummary()' not in js:
 
 js = js.replace(
     "window.onload = function() {",
-    "window.onload = function() {\n  attachInputFeedbackHandlers();",
+    "window.onload = function() {\n  markScriptReady();\n  attachInputFeedbackHandlers();",
     1,
 )
 
 opts = jsbeautifier.default_options()
 opts.indent_size = 2
 js = jsbeautifier.beautify(js, opts)
+Path('/tmp/aksama-modern.js').write_text(js)
+
+babel = Path('/workspace/node_modules/.bin/babel')
+preset_env = Path('/workspace/node_modules/@babel/preset-env')
+if babel.exists() and preset_env.exists():
+    es5 = Path('/tmp/aksama-es5.js')
+    subprocess.run(
+        [str(babel), '/tmp/aksama-modern.js', '--presets=@babel/preset-env', '--out-file', str(es5)],
+        check=True,
+    )
+    js = es5.read_text()
 
 html_out = html[: m.start()] + prefix + js + suffix + html[m.end() :]
 
@@ -393,6 +410,14 @@ html_out = re.sub(
     'Örnek Test Verisi Yükle (16-18, 23-24 Haziran)',
     html_out,
     count=1,
+)
+html_out = html_out.replace(
+    "    <div class=\"sub\">Excel'den kopyaladığınız veriyi metin alanlarına yapıştırın veya Excel \n"
+    "dosyasını (.xlsx) doğrudan kutunun içine sürükleyip bırakın.</div> \n",
+    "    <div class=\"sub\">Excel'den kopyaladığınız veriyi metin alanlarına yapıştırın veya Excel \n"
+    "dosyasını (.xlsx) doğrudan kutunun içine sürükleyip bırakın.</div> \n"
+    "    <div id=\"scriptHealth\" class=\"note\" style=\"border-left-color:var(--red);\"><b>JavaScript henüz çalışmadı.</b> Bu mesaj kaybolmuyorsa dosya eksik/bozuk kopyalanmış, tarayıcı JavaScript'i kapatmış veya Edge uyumluluk modu kullanıyor demektir. Dosyayı kopyala-yapıştır yerine doğrudan indirin.</div>\n",
+    1,
 )
 html_out, n = re.subn(
     r'(<button class="btn btn-ghost btn-block"[\s\S]*?onclick="loadDemoData\(\)">\s*Örnek Test Verisi Yükle \(16-18, 23-24 Haziran\)</button>\s*)',

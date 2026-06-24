@@ -406,6 +406,7 @@ Tema</span>
     <h2>Veri Girişi</h2> 
     <div class="sub">Excel'den kopyaladığınız veriyi metin alanlarına yapıştırın veya Excel 
 dosyasını (.xlsx) doğrudan kutunun içine sürükleyip bırakın.</div> 
+    <div id="scriptHealth" class="note" style="border-left-color:var(--red);"><b>JavaScript henüz çalışmadı.</b> Bu mesaj kaybolmuyorsa dosya eksik/bozuk kopyalanmış, tarayıcı JavaScript'i kapatmış veya Edge uyumluluk modu kullanıyor demektir. Dosyayı kopyala-yapıştır yerine doğrudan indirin.</div>
      
     <div class="input-grid"> 
       <div> 
@@ -555,1340 +556,1447 @@ ink2);">Yapılandırma Oranı Geçmiş Trendi (31-91 Gün)</div>
 tamamen yerel tarayıcı hafızasında saklar.</p> 
 </div> 
  
-<script> let todayRows = [],
-   yestRows = [],
-   todayDate = null,
-   yestDate = null;
- let chartKPI = null,
-   chartSeg31 = null,
-   chartSeg15 = null,
-   chartCollection = null,
-   chartRatioTrend = null;
+<script>"use strict";
 
- function norm(s) {
-   return s.toUpperCase().replace(/İ/g, 'I').replace(/Ç/g, 'C').replace(/Ğ/g, 'G').replace(/Ö/g, 'O').replace(/Ş/g, 'S').replace(/Ü/g, 'U').trim();
- }
+function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
+function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
+function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
+function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
+function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
+function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
+function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t["return"] || t["return"](); } finally { if (u) throw o; } } }; }
+function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
+function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
+var todayRows = [],
+  yestRows = [],
+  todayDate = null,
+  yestDate = null;
+var chartKPI = null,
+  chartSeg31 = null,
+  chartSeg15 = null,
+  chartCollection = null,
+  chartRatioTrend = null;
+function norm(s) {
+  return s.toUpperCase().replace(/İ/g, 'I').replace(/Ç/g, 'C').replace(/Ğ/g, 'G').replace(/Ö/g, 'O').replace(/Ş/g, 'S').replace(/Ü/g, 'U').trim();
+}
+function parseNum(raw) {
+  if (raw == null) return NaN;
+  var s = raw.trim();
+  if (s === '') return NaN;
+  s = s.replace(/[^0-9.,\-]/g, '');
+  if (s === '') return NaN;
+  s = s.replace(/\./g, '').replace(',', '.');
+  return parseFloat(s);
+}
+function parseBlock(text) {
+  var lines = text.split(/\r?\n/);
+  var section = 'GENEL';
+  var rows = [];
+  var date = null;
+  var _iterator = _createForOfIteratorHelper(lines),
+    _step;
+  try {
+    for (_iterator.s(); !(_step = _iterator.n()).done;) {
+      var line = _step.value;
+      if (!line.trim()) continue;
+      var cells = line.split('\t');
+      var label = (cells[0] || '').trim();
+      if (label === '') continue;
+      var amt = parseNum(cells[1]);
+      var nlabel = norm(label);
+      if (isNaN(amt)) {
+        if (/^\d{2}\.\d{2}\.\d{4}$/.test(label)) date = label;else if (nlabel.includes('31-91')) section = '31-91';else if (nlabel.includes('15-91')) section = '15-91';
+        continue;
+      }
+      var adet = parseNum(cells[2]);
+      rows.push({
+        section: section,
+        label: label,
+        normLabel: nlabel,
+        tutar: amt,
+        adet: isNaN(adet) ? 0 : adet
+      });
+    }
+  } catch (err) {
+    _iterator.e(err);
+  } finally {
+    _iterator.f();
+  }
+  return {
+    rows: rows,
+    date: date
+  };
+}
+function findRow(rows, inc) {
+  return rows.find(function (r) {
+    return inc.every(function (k) {
+      return r.normLabel.includes(k);
+    });
+  });
+}
+function isPaymentRow(r) {
+  return r.normLabel.includes('ODENEN') || r.normLabel.includes('ODEME');
+}
+function matchesSegment(normLabel, key) {
+  if (key === 'BIREYSEL') return normLabel.includes('BIREYSEL') && !normLabel.includes('TARIM');
+  if (key === 'TARIM') return normLabel.includes('TARIM');
+  if (key === 'TICARI') {
+    return normLabel.includes('TICARI') || normLabel.includes('KOBI') || normLabel.includes('PERA') || normLabel.includes('ISLETME');
+  }
+  return false;
+}
+function getSegmentPayment(rows, key) {
+  var r31 = rows.filter(function (r) {
+    return r.section === '31-91';
+  });
+  var totalRow = r31.find(function (r) {
+    return matchesSegment(r.normLabel, key) && r.normLabel.includes('TOPLAM ODEME');
+  });
+  if (totalRow && (totalRow.tutar > 0 || totalRow.adet > 0)) {
+    return {
+      tutar: totalRow.tutar,
+      adet: totalRow.adet || 0
+    };
+  }
+  var tutar = 0,
+    adet = 0;
+  r31.forEach(function (r) {
+    if (!matchesSegment(r.normLabel, key)) return;
+    if (!r.normLabel.includes('ODENEN') && !r.normLabel.includes('ODEME YAPAN')) return;
+    if (r.normLabel.includes('TOPLAM')) return;
+    tutar += r.tutar;
+    adet += r.adet || 0;
+  });
+  return {
+    tutar: tutar,
+    adet: adet
+  };
+}
+function calcNetRollMovement() {
+  if (!yestRows.length) return null;
+  var gT = todayRows.filter(function (r) {
+    return r.section === 'GENEL';
+  });
+  var gY = yestRows.filter(function (r) {
+    return r.section === 'GENEL';
+  });
+  var t31 = findRow(gT, ['31-91', 'TOPLAM AKSAMA']);
+  var y31 = findRow(gY, ['31-91', 'TOPLAM AKSAMA']);
+  var t15 = findRow(gT, ['15-91', 'TOPLAM AKSAMA']);
+  var y15 = findRow(gY, ['15-91', 'TOPLAM AKSAMA']);
+  if (!t31 || !y31 || !t15 || !y15) return null;
+  var earlyT = t15.tutar - t31.tutar;
+  var earlyY = y15.tutar - y31.tutar;
+  return {
+    delta31: t31.tutar - y31.tutar,
+    deltaEarly: earlyT - earlyY
+  };
+}
+function fmtTL(n) {
+  if (n == null || isNaN(n)) return '—';
+  return Math.round(n).toLocaleString('tr-TR') + ' ₺';
+}
+function fmtNum(n) {
+  if (n == null || isNaN(n)) return '—';
+  return Math.round(n).toLocaleString('tr-TR');
+}
+function fmtPct(n) {
+  if (n == null || isNaN(n)) return '—';
+  return n.toLocaleString('tr-TR', {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1
+  }) + '%';
+} /* ---------- LocalStorage İşlemleri ---------- */
+function saveToHistory(date, rows) {
+  if (!date || !rows || rows.length === 0) return;
+  var history = getHistory();
+  history = history.filter(function (h) {
+    return h.date !== date;
+  });
+  history.push({
+    date: date,
+    rows: rows
+  });
+  history.sort(function (a, b) {
+    return parseDate(a.date) - parseDate(b.date);
+  });
+  if (history.length > 30) {
+    history = history.slice(history.length - 30);
+  }
+  localStorage.setItem('aksama_panosu_history', JSON.stringify(history));
+  renderHistoryListUI();
+}
+function getHistory() {
+  try {
+    return JSON.parse(localStorage.getItem('aksama_panosu_history')) || [];
+  } catch (e) {
+    return [];
+  }
+}
+function parseDate(dStr) {
+  var parts = dStr.split('.');
+  if (parts.length === 3) {
+    return new Date(parts[2], parts[1] - 1, parts[0]);
+  }
+  return new Date(0);
+}
+/* trend: önceki iş günleri */
+function getRecentHistory() {
+  var days = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : 7;
+  var history = getHistory();
+  if (!todayDate) return [];
+  var todayTime = parseDate(todayDate).getTime();
+  return history.filter(function (h) {
+    return parseDate(h.date).getTime() < todayTime;
+  }).sort(function (a, b) {
+    return parseDate(b.date).getTime() - parseDate(a.date).getTime();
+  }).slice(0, days);
+}
+function renderHistoryListUI() {
+  var container = document.getElementById('historyList');
+  if (!container) return;
+  var history = getHistory();
+  if (history.length === 0) {
+    document.getElementById('history-section').style.display = 'none';
+    return;
+  }
+  document.getElementById('history-section').style.display = 'block';
+  var html = '';
+  _toConsumableArray(history).reverse().forEach(function (h) {
+    html += "       <div style=\"display:flex; justify-content:space-between; align-items:center; background:var(--card2); border:1px solid var(--line2); padding:8px 12px; border-radius:8px;\">         <span style=\"font-size:0.78rem; font-weight:600; color:var(--ink); font-family:'Roboto Mono',monospace;\">  ".concat(h.date, "</span>         <div style=\"display:flex; gap:8px; align-items:center;\">           <span style=\"font-size:0.68rem; color:var(--ink3);\">").concat(h.rows.length, " kalem</span>           <span style=\"cursor:pointer; color:var(--red); font-size:0.85rem; font-weight:bold; padding:2px 6px;\" title=\"Sil\" onclick=\"deleteHistoryDate('").concat(h.date, "')\">\xD7</span>         </div>       </div>     ");
+  });
+  container.innerHTML = html;
+}
+function deleteHistoryDate(date) {
+  if (confirm("".concat(date, " tarihine ait verileri haf\u0131zadan silmek istedi\u011Finize emin misiniz?"))) {
+    var history = getHistory();
+    history = history.filter(function (h) {
+      return h.date !== date;
+    });
+    localStorage.setItem('aksama_panosu_history', JSON.stringify(history));
+    renderHistoryListUI();
+  }
+}
+function clearAllHistory() {
+  if (confirm('Tüm geçmiş verileri silmek istediğinize emin misiniz?')) {
+    localStorage.removeItem('aksama_panosu_history');
+    renderHistoryListUI();
+  }
+}
+/* ---------- Textarea Sürükle-Bırak Excel Desteği ---------- */
+function initTextareaDragzone(id, isToday) {
+  var area = document.getElementById(id);
+  if (!area) return;
+  area.addEventListener('dragover', function (e) {
+    e.preventDefault();
+    area.style.borderColor = 'var(--accent)';
+    area.style.background = 'var(--paper)';
+  });
+  area.addEventListener('dragleave', function () {
+    area.style.borderColor = 'var(--line)';
+    area.style.background = 'var(--card2)';
+  });
+  area.addEventListener('drop', function (e) {
+    e.preventDefault();
+    area.style.borderColor = 'var(--line)';
+    area.style.background = 'var(--card2)';
+    if (e.dataTransfer.files.length) {
+      var file = e.dataTransfer.files[0];
+      var reader = new FileReader();
+      reader.onload = function (evt) {
+        try {
+          var data = new Uint8Array(evt.target.result);
+          var workbook = XLSX.read(data, {
+            type: 'array'
+          });
+          var sheet = workbook.Sheets[workbook.SheetNames[0]];
+          var tsv = XLSX.utils.sheet_to_txt(sheet);
+          area.value = tsv;
+        } catch (err) {
+          alert('Excel dosyası okunamadı. Lütfen geçerli bir Excel (.xlsx) dosyası sürüklediğinizden emin olun.');
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+  });
+}
+/* ---------- Temalama ---------- */
+function initTheme() {
+  var theme = localStorage.getItem('aksama_theme') || 'light';
+  if (theme === 'dark') {
+    document.body.classList.add('dark-mode');
+    document.querySelector('.mode-icon').innerText = ' ';
+    document.querySelector('.mode-text').innerText = 'Açık Tema';
+  } else {
+    document.body.classList.remove('dark-mode');
+    document.querySelector('.mode-icon').innerText = ' ';
+    document.querySelector('.mode-text').innerText = 'Koyu Tema';
+  }
+}
+function toggleTheme() {
+  var isDark = document.body.classList.toggle('dark-mode');
+  localStorage.setItem('aksama_theme', isDark ? 'dark' : 'light');
+  document.querySelector('.mode-icon').innerText = isDark ? ' ' : ' ';
+  document.querySelector('.mode-text').innerText = isDark ? 'Açık Tema' : 'Koyu Tema';
+  if (todayRows.length > 0) {
+    renderCharts();
+  }
+}
+function getThemeColors() {
+  var isDark = document.body.classList.contains('dark-mode');
+  return {
+    textColor: isDark ? '#9EA7B6' : '#475061',
+    gridColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(16,24,38,0.06)',
+    accent: isDark ? '#4DABF7' : '#1B5CAC',
+    red: isDark ? '#FF6B6B' : '#C92A2A',
+    green: isDark ? '#51CF66' : '#147A3C',
+    amber: isDark ? '#FCC419' : '#A55E00',
+    blue: isDark ? '#4DABF7' : '#1B5CAC',
+    teal: isDark ? '#20C997' : '#0C8080',
+    violet: isDark ? '#B197FC' : '#6446B8'
+  };
+}
+function setInputFeedback(message, type) {
+  var box = document.getElementById('inputFeedback');
+  if (!box) {
+    alert(String(message).replace(/<[^>]*>/g, ''));
+    return;
+  }
+  var color = type === 'error' ? 'var(--red)' : type === 'success' ? 'var(--green)' : 'var(--amber)';
+  box.style.display = 'block';
+  box.style.borderLeftColor = color;
+  box.innerHTML = message;
+}
+function clearInputFeedback() {
+  var box = document.getElementById('inputFeedback');
+  if (box) {
+    box.style.display = 'none';
+    box.innerHTML = '';
+  }
+}
+function markScriptReady() {
+  var health = document.getElementById('scriptHealth');
+  if (health) health.style.display = 'none';
+}
+function attachInputFeedbackHandlers() {
+  ['todayInput', 'yestInput'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('input', clearInputFeedback);
+    }
+  });
+}
 
- function parseNum(raw) {
-   if (raw == null) return NaN;
-   let s = raw.trim();
-   if (s === '') return NaN;
-   s = s.replace(/[^0-9.,\-]/g, '');
-   if (s === '') return NaN;
-   s = s.replace(/\./g, '').replace(',', '.');
-   return parseFloat(s);
- }
-
- function parseBlock(text) {
-   const lines = text.split(/\r?\n/);
-   let section = 'GENEL';
-   const rows = [];
-   let date = null;
-   for (const line of lines) {
-     if (!line.trim()) continue;
-     const cells = line.split('\t');
-     const label = (cells[0] || '').trim();
-     if (label === '') continue;
-     const amt = parseNum(cells[1]);
-     const nlabel = norm(label);
-     if (isNaN(amt)) {
-       if (/^\d{2}\.\d{2}\.\d{4}$/.test(label)) date = label;
-       else if (nlabel.includes('31-91')) section = '31-91';
-       else if (nlabel.includes('15-91')) section = '15-91';
-       continue;
-     }
-     const adet = parseNum(cells[2]);
-     rows.push({
-       section,
-       label,
-       normLabel: nlabel,
-       tutar: amt,
-       adet: isNaN(adet) ? 0 : adet
-     });
-   }
-   return {
-     rows,
-     date
-   };
- }
-
- function findRow(rows, inc) {
-   return rows.find(r => inc.every(k => r.normLabel.includes(k)));
- }
-
- function isPaymentRow(r) {
-   return r.normLabel.includes('ODENEN') || r.normLabel.includes('ODEME');
- }
-
- function matchesSegment(normLabel, key) {
-   if (key === 'BIREYSEL') return normLabel.includes('BIREYSEL') && !normLabel.includes('TARIM');
-   if (key === 'TARIM') return normLabel.includes('TARIM');
-   if (key === 'TICARI') {
-     return normLabel.includes('TICARI') || normLabel.includes('KOBI') ||
-       normLabel.includes('PERA') || normLabel.includes('ISLETME');
-   }
-   return false;
- }
-
- function getSegmentPayment(rows, key) {
-   const r31 = rows.filter(r => r.section === '31-91');
-   const totalRow = r31.find(r => matchesSegment(r.normLabel, key) && r.normLabel.includes('TOPLAM ODEME'));
-   if (totalRow && (totalRow.tutar > 0 || totalRow.adet > 0)) {
-     return {
-       tutar: totalRow.tutar,
-       adet: totalRow.adet || 0
-     };
-   }
-   let tutar = 0,
-     adet = 0;
-   r31.forEach(r => {
-     if (!matchesSegment(r.normLabel, key)) return;
-     if (!r.normLabel.includes('ODENEN') && !r.normLabel.includes('ODEME YAPAN')) return;
-     if (r.normLabel.includes('TOPLAM')) return;
-     tutar += r.tutar;
-     adet += r.adet || 0;
-   });
-   return {
-     tutar,
-     adet
-   };
- }
-
- function calcNetRollMovement() {
-   if (!yestRows.length) return null;
-   const gT = todayRows.filter(r => r.section === 'GENEL');
-   const gY = yestRows.filter(r => r.section === 'GENEL');
-   const t31 = findRow(gT, ['31-91', 'TOPLAM AKSAMA']);
-   const y31 = findRow(gY, ['31-91', 'TOPLAM AKSAMA']);
-   const t15 = findRow(gT, ['15-91', 'TOPLAM AKSAMA']);
-   const y15 = findRow(gY, ['15-91', 'TOPLAM AKSAMA']);
-   if (!t31 || !y31 || !t15 || !y15) return null;
-   const earlyT = t15.tutar - t31.tutar;
-   const earlyY = y15.tutar - y31.tutar;
-   return {
-     delta31: t31.tutar - y31.tutar,
-     deltaEarly: earlyT - earlyY
-   };
- }
-
- function fmtTL(n) {
-   if (n == null || isNaN(n)) return '—';
-   return Math.round(n).toLocaleString('tr-TR') + ' ₺';
- }
-
- function fmtNum(n) {
-   if (n == null || isNaN(n)) return '—';
-   return Math.round(n).toLocaleString('tr-TR');
- }
-
- function fmtPct(n) {
-   if (n == null || isNaN(n)) return '—';
-   return n.toLocaleString('tr-TR', {
-     minimumFractionDigits: 1,
-     maximumFractionDigits: 1
-   }) + '%';
- } /* ---------- LocalStorage İşlemleri ---------- */
- function saveToHistory(date, rows) {
-   if (!date || !rows || rows.length === 0) return;
-   let history = getHistory();
-   history = history.filter(h => h.date !== date);
-   history.push({
-     date,
-     rows
-   });
-   history.sort((a, b) => parseDate(a.date) - parseDate(b.date));
-   if (history.length > 30) {
-     history = history.slice(history.length - 30);
-   }
-   localStorage.setItem('aksama_panosu_history', JSON.stringify(history));
-   renderHistoryListUI();
- }
-
- function getHistory() {
-   try {
-     return JSON.parse(localStorage.getItem('aksama_panosu_history')) || [];
-   } catch (e) {
-     return [];
-   }
- }
-
- function parseDate(dStr) {
-   const parts = dStr.split('.');
-   if (parts.length === 3) {
-     return new Date(parts[2], parts[1] - 1, parts[0]);
-   }
-   return new Date(0);
- }
- /* trend: önceki iş günleri */
- function getRecentHistory(days = 7) {
-   const history = getHistory();
-   if (!todayDate) return [];
-   const todayTime = parseDate(todayDate).getTime();
-   return history.filter(h => parseDate(h.date).getTime() < todayTime).sort((a, b) => parseDate(b.date).getTime() - parseDate(a.date).getTime()).slice(0, days);
- }
-
- function renderHistoryListUI() {
-   const container = document.getElementById('historyList');
-   if (!container) return;
-   const history = getHistory();
-   if (history.length === 0) {
-     document.getElementById('history-section').style.display = 'none';
-     return;
-   }
-   document.getElementById('history-section').style.display = 'block';
-   let html = '';
-   [...history].reverse().forEach(h => {
-     html += `       <div style="display:flex; justify-content:space-between; align-items:center; background:var(--card2); border:1px solid var(--line2); padding:8px 12px; border-radius:8px;">         <span style="font-size:0.78rem; font-weight:600; color:var(--ink); font-family:'Roboto Mono',monospace;">  ${h.date}</span>         <div style="display:flex; gap:8px; align-items:center;">           <span style="font-size:0.68rem; color:var(--ink3);">${h.rows.length} kalem</span>           <span style="cursor:pointer; color:var(--red); font-size:0.85rem; font-weight:bold; padding:2px 6px;" title="Sil" onclick="deleteHistoryDate('${h.date}')">×</span>         </div>       </div>     `;
-   });
-   container.innerHTML = html;
- }
-
- function deleteHistoryDate(date) {
-   if (confirm(`${date} tarihine ait verileri hafızadan silmek istediğinize emin misiniz?`)) {
-     let history = getHistory();
-     history = history.filter(h => h.date !== date);
-     localStorage.setItem('aksama_panosu_history', JSON.stringify(history));
-     renderHistoryListUI();
-   }
- }
-
- function clearAllHistory() {
-   if (confirm('Tüm geçmiş verileri silmek istediğinize emin misiniz?')) {
-     localStorage.removeItem('aksama_panosu_history');
-     renderHistoryListUI();
-   }
- }
- /* ---------- Textarea Sürükle-Bırak Excel Desteği ---------- */
- function initTextareaDragzone(id, isToday) {
-   const area = document.getElementById(id);
-   if (!area) return;
-   area.addEventListener('dragover', (e) => {
-     e.preventDefault();
-     area.style.borderColor = 'var(--accent)';
-     area.style.background = 'var(--paper)';
-   });
-   area.addEventListener('dragleave', () => {
-     area.style.borderColor = 'var(--line)';
-     area.style.background = 'var(--card2)';
-   });
-   area.addEventListener('drop', (e) => {
-     e.preventDefault();
-     area.style.borderColor = 'var(--line)';
-     area.style.background = 'var(--card2)';
-     if (e.dataTransfer.files.length) {
-       const file = e.dataTransfer.files[0];
-       const reader = new FileReader();
-       reader.onload = function(evt) {
-         try {
-           const data = new Uint8Array(evt.target.result);
-           const workbook = XLSX.read(data, {
-             type: 'array'
-           });
-           const sheet = workbook.Sheets[workbook.SheetNames[0]];
-           const tsv = XLSX.utils.sheet_to_txt(sheet);
-           area.value = tsv;
-         } catch (err) {
-           alert('Excel dosyası okunamadı. Lütfen geçerli bir Excel (.xlsx) dosyası sürüklediğinizden emin olun.');
-         }
-       };
-       reader.readAsArrayBuffer(file);
-     }
-   });
- }
- /* ---------- Temalama ---------- */
- function initTheme() {
-   const theme = localStorage.getItem('aksama_theme') || 'light';
-   if (theme === 'dark') {
-     document.body.classList.add('dark-mode');
-     document.querySelector('.mode-icon').innerText = ' ';
-     document.querySelector('.mode-text').innerText = 'Açık Tema';
-   } else {
-     document.body.classList.remove('dark-mode');
-     document.querySelector('.mode-icon').innerText = ' ';
-     document.querySelector('.mode-text').innerText = 'Koyu Tema';
-   }
- }
-
- function toggleTheme() {
-   const isDark = document.body.classList.toggle('dark-mode');
-   localStorage.setItem('aksama_theme', isDark ? 'dark' : 'light');
-   document.querySelector('.mode-icon').innerText = isDark ? ' ' : ' ';
-   document.querySelector('.mode-text').innerText = isDark ? 'Açık Tema' : 'Koyu Tema';
-   if (todayRows.length > 0) {
-     renderCharts();
-   }
- }
-
- function getThemeColors() {
-   const isDark = document.body.classList.contains('dark-mode');
-   return {
-     textColor: isDark ? '#9EA7B6' : '#475061',
-     gridColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(16,24,38,0.06)',
-     accent: isDark ? '#4DABF7' : '#1B5CAC',
-     red: isDark ? '#FF6B6B' : '#C92A2A',
-     green: isDark ? '#51CF66' : '#147A3C',
-     amber: isDark ? '#FCC419' : '#A55E00',
-     blue: isDark ? '#4DABF7' : '#1B5CAC',
-     teal: isDark ? '#20C997' : '#0C8080',
-     violet: isDark ? '#B197FC' : '#6446B8'
-   };
- }
-
- function setInputFeedback(message, type) {
-   const box = document.getElementById('inputFeedback');
-   if (!box) {
-     alert(String(message).replace(/<[^>]*>/g, ''));
-     return;
-   }
-   const color = type === 'error' ? 'var(--red)' : type === 'success' ? 'var(--green)' : 'var(--amber)';
-   box.style.display = 'block';
-   box.style.borderLeftColor = color;
-   box.innerHTML = message;
- }
-
- function clearInputFeedback() {
-   const box = document.getElementById('inputFeedback');
-   if (box) {
-     box.style.display = 'none';
-     box.innerHTML = '';
-   }
- }
-
- function attachInputFeedbackHandlers() {
-   ['todayInput', 'yestInput'].forEach(function(id) {
-     const el = document.getElementById(id);
-     if (el) {
-       el.addEventListener('input', clearInputFeedback);
-     }
-   });
- }
-
- /* ---------- Panoyu Oluştur ---------- */
- function buildDashboard() {
-   const todayEl = document.getElementById('todayInput');
-   const todayText = todayEl.value;
-   if (!todayText.trim()) {
-     setInputFeedback('<b>Bugünün verisi yok.</b> Excel verisini üstteki kutuya yapıştırın ya da demo için <b>Örnek Test Verisi Yükle</b> butonuna basın; sonra tekrar <b>Panoyu Oluştur</b>\'a basın.', 'warning');
-     todayEl.focus();
-     return;
-   }
-   const pT = parseBlock(todayText);
-   if (pT.rows.length === 0) {
-     setInputFeedback('<b>Bugünün verisi tanınamadı.</b> Excel\'den ilgili alanı kopyalayıp bu kutuya yapıştırın. İlk satırda tarih, altında AKSAMA VAZİYETİ ve TUTAR/ADET satırları olmalı.', 'error');
-     todayEl.focus();
-     return;
-   }
-   clearInputFeedback();
-   todayRows = pT.rows;
-   todayDate = pT.date;
-   if (todayDate) {
-     saveToHistory(todayDate, todayRows);
-   } // Dünün verisini belirleme
-   const yestText = document.getElementById('yestInput').value;
-   let pY = {
-     rows: [],
-     date: null
-   };
-   if (yestText.trim()) {
-     pY = parseBlock(yestText);
-     if (pY.rows.length > 0 && pY.date) {
-       saveToHistory(pY.date, pY.rows);
-     }
-   } else if (todayDate) { // Hafızadan bugünden önceki en güncel tarihi otomatik bul
-     const history = getHistory();
-     const todayTime = parseDate(todayDate).getTime();
-     let bestPrev = null;
-     let bestPrevTime = 0;
-     history.forEach(h => {
-       const hTime = parseDate(h.date).getTime();
-       if (hTime < todayTime && hTime > bestPrevTime) {
-         bestPrev = h;
-         bestPrevTime = hTime;
-       }
-     });
-     // Eğer geçmişte bugünden eski tarih yoksa, listedeki bugün dışındaki en son tarihi al
-     if (!bestPrev && history.length > 0) {
-       const nonToday = history.filter(h => h.date !== todayDate);
-       if (nonToday.length > 0) {
-         bestPrev = nonToday[nonToday.length - 1];
-       }
-     }
-     if (bestPrev) {
-       pY = {
-         rows: bestPrev.rows,
-         date: bestPrev.date
-       };
-     }
-   }
-   yestRows = pY.rows;
-   yestDate = pY.date;
-   // === Son 7 gün geçmiş veriyi trend için hazırla ===
-   window.recentHistory = getRecentHistory(7);
-   document.getElementById('input-panel').style.display = 'none';
-   document.getElementById('dash').style.display = 'block';
-   const compareLabel = yestDate ? `Son iş günü <b>${yestDate}</b>` : 'Kıyas verisi yok';
-   document.getElementById('datepill').innerHTML = `Bugün <b>${todayDate||'—'}</b><br>${compareLabel}`;
-   renderKPIs();
-   renderActionSummary();
-   renderCollection();
-   renderDistribution();
-   renderRatio();
-   renderSubsegments();
-   ['GENEL', '31-91', '15-91'].forEach(renderSectionTable);
-   // Akıllı içgörüler ve Risk karnesini yükle
-   renderInsights();
-   renderSegmentRiskCards();
-   renderCharts();
- }
- /* ---------- KPI ---------- */
- function kpiCard(label, todayObj, yestObj, recentHistory = [], badIfUp = true) {
-   const curr = todayObj ? todayObj.tutar : null;
-   if (curr == null) return '';
-   const prev = yestObj ? yestObj.tutar : null;
-   let pill = '<span class="pill flat">yeni</span>',
-     chg = '',
-     yest = '',
-     accent = 'var(--line)';
-   if (prev == null) {
-     pill = '<span class="pill flat">dün yok</span>';
-     chg = '<span class="t-flat">Kıyas için dün verisi gerekli</span>';
-   } else {
-     const d = curr - prev,
-       pct = prev !== 0 ? (d / prev * 100) : null;
-     if (Math.abs(d) < 0.5) {
-       pill = '<span class="pill flat">≈ sabit</span>';
-       chg = '<span class="t-flat">Değişim yok</span>';
-       accent = 'var(--ink3)';
-     } else {
-       const up = d > 0,
-         good = badIfUp ? !up : up;
-       accent = good ? 'var(--green)' : 'var(--red)';
-       pill = `<span class="pill ${good?'good':'bad'}">${pct!=null?(up?'+':'')+fmtPct(pct):''}</span>`;
-       const cls = good ? 't-good' : 't-bad',
-         arrow = up ? '▲' : '▼',
-         word = up ? 'arttı' : 'azaldı',
-         verdict = good ? 'iyi' : 'dikkat';
-       chg = `<span class="${cls}"><span class="amt">${arrow} ${fmtTL(Math.abs(d))}</span> ${word} · ${verdict}</span>`;
-     }
-     yest = `<div class="yest">Dün: ${fmtTL(prev)}</div>`;
-   } // === ÇOK GÜNLÜ TREND (3 ve 7 gün) ===
-   // recentHistory: bugünden önceki günler, en yeni en başta. Bu metriğin geçmiş değerlerini topla.
-   let trendHtml = '';
-   if (todayObj && recentHistory && recentHistory.length >= 1) {
-     const histVals = recentHistory.map(h => {
-       const row = h.rows.find(r => r.normLabel === todayObj.normLabel);
-       return row ? row.tutar : null;
-     });
-     // index 0 = en yeni geçmiş gün
-     const trendLine = (windowDays, etiket) => { // bugün + son N geçmiş günün en eskisini kıyasla
-       const slice = histVals.slice(0, windowDays).filter(v => v != null);
-       if (slice.length < 1) return '';
-       const oldest = slice[slice.length - 1];
-       // pencerenin en eski değeri
-       const diff = curr - oldest;
-       if (Math.abs(diff) <= 1000) {
-         return `<div class="tr flat"><span class="win">${etiket}:</span> <span class="val">≈ sabit</span></div>`;
-       }
-       const up = diff > 0;
-       const good = badIfUp ? !up : up;
-       const cls = good ? 't-good' : 't-bad';
-       const arrow = up ? '▲' : '▼';
-       return `<div class="tr ${cls}"><span class="win">${etiket}:</span> <span class="val">${arrow} ${fmtTL(Math.abs(diff))}</span></div>`;
-     };
-     const t3 = trendLine(3, 'Son 3 gün');
-     const t7 = recentHistory.length >= 4 ? trendLine(7, 'Son 7 gün') : '';
-     if (t3 || t7) trendHtml = `<div class="trend">${t3}${t7}</div>`;
-   }
-   return `<div class="kpi" style="--kpi-accent:${accent}"><div class="top"><div class="label">${label}</div>${pill}</div><div class="bigval">${fmtTL(curr)}</div><div class="chgline">${chg}</div>${yest}${trendHtml}</div>`;
- }
-
- function renderKPIs() {
-   const gT = todayRows.filter(r => r.section === 'GENEL'),
-     gY = yestRows.filter(r => r.section === 'GENEL');
-   const rh = window.recentHistory || [];
-   document.getElementById('kpiGrid').innerHTML = [kpiCard('Toplam Aksama · 31-91 Gün', findRow(gT, ['31-91', 'TOPLAM AKSAMA']), findRow(gY, ['31-91', 'TOPLAM AKSAMA']), rh, true), kpiCard('Toplam Aksama · 15-91 Gün', findRow(gT, ['15-91', 'TOPLAM AKSAMA']), findRow(gY, ['15-91', 'TOPLAM AKSAMA']), rh, true), kpiCard('Toplam Takip Borcu', findRow(gT, ['TAKIP BORCU']), findRow(gY, ['TAKIP BORCU']), rh, true), ].join('') || '<div class="empty-note">Gösterge bulunamadı.</div>';
- }
- /* ---------- Akıllı Analiz ve Erken Uyarı Sinyalleri (EWS) ---------- */
- function generateInsights() {
-   const insights = [];
-   const gT = todayRows.filter(r => r.section === 'GENEL'),
-     gY = yestRows.filter(r => r.section === 'GENEL');
-   const t31 = (findRow(gT, ['31-91', 'TOPLAM AKSAMA']) || {}).tutar || 0;
-   const y31 = (findRow(gY, ['31-91', 'TOPLAM AKSAMA']) || {}).tutar || 0;
-   // 1. Genel trend
-   if (y31 > 0) {
-     const diff = t31 - y31;
-     const pct = (diff / y31 * 100);
-     if (diff > 50000) {
-       insights.push({
-         type: 'bad',
-         title: 'Toplam Aksamada Artış Sinyali',
-         desc: `31-91 Gün toplam aksama dünden bugüne <b>${fmtTL(diff)} (%${pct.toFixed(1)})</b> arttı. Takip riskinde büyüme işareti.`
-       });
-     } else if (diff < -50000) {
-       insights.push({
-         type: 'good',
-         title: 'Aksama Portföyü Erime Trendinde',
-         desc: `31-91 Gün toplam aksama dünden bugüne <b>${fmtTL(Math.abs(diff))} (%${Math.abs(pct).toFixed(1)})</b> azalarak olumlu yönde ilerleme kaydetti.`
-       });
-     }
-   } // 2. Tahsilat Hızı
-   const ustu = gT.find(x => ['31 GUN USTU'].every(k => x.normLabel.includes(k)))?.tutar || 0;
-   const alti = gT.find(x => ['31 GUN ALTI'].every(k => x.normLabel.includes(k)))?.tutar || 0;
-   const totTut = ustu + alti;
-   const aksama31 = findRow(gT, ['31-91', 'TOPLAM AKSAMA']);
-   const collRate = (aksama31 && aksama31.tutar > 0) ? (totTut / aksama31.tutar * 100) : 0;
-   if (collRate >= 4) {
-     insights.push({
-       type: 'good',
-       title: 'Güçlü Tahsilat Performansı',
-       desc: `Bugün gecikmeli portföyün <b>%${collRate.toFixed(1)}'i (${fmtTL(totTut)})</b> başarıyla tahsil edildi.`
-     });
-   } else if (collRate > 0 && collRate < 1.5) {
-     insights.push({
-       type: 'warning',
-       title: 'Yavaş Tahsilat Akışı',
-       desc: `Bugünkü tahsilat oranı <b>%${collRate.toFixed(1)}</b> ile zayıf kaldı. Gecikmeli kitledeki nakit dönüşü yavaş gidiyor.`
-     });
-   } // 3. Yapılandırma Yükü
-   const t = splitYapNorm(todayRows.filter(r => r.section === '31-91'));
-   if (t.total > 0) {
-     const yapRatio = t.yap / t.total * 100;
-     if (yapRatio > 65) {
-       insights.push({
-         type: 'bad',
-         title: 'Kritik Yapılandırma Seviyesi',
-         desc: `Gecikmeli portföyün <b>%${yapRatio.toFixed(1)}'i</b> önceden yapılandırılıp tekrar aksayan kredilerden oluşuyor! Yapılandırma kalitesi zayıf.`
-       });
-     } else if (yapRatio > 45) {
-       insights.push({
-         type: 'warning',
-         title: 'Yapılandırma Kredileri İzleme Altında',
-         desc: `Portföyün <b>%${yapRatio.toFixed(1)}'i</b> yapılandırma ürünüdür. Tekrar aksama ve tahsil edilememe olasılıkları yüksek.`
-       });
-     }
-   } // 4. Segment Bazlı Hacim/Tahsilat Uyumsuzluğu (Kritik Uyarı)
-   const segments = ['BIREYSEL', 'TARIM', 'TICARI'];
-   const segmentNames = {
-     'BIREYSEL': 'Bireysel',
-     'TARIM': 'Tarım',
-     'TICARI': 'Ticari/KOBİ'
-   };
-   segments.forEach(segKey => {
-     const tSeg = segmentSplit(todayRows, segKey);
-     const ySeg = yestRows.length ? segmentSplit(yestRows, segKey) : null;
-     const r31 = todayRows.filter(r => r.section === '31-91');
-     const segPay = getSegmentPayment(todayRows, segKey).tutar;
-     if (tSeg.total > 0 && ySeg && ySeg.total > 0) {
-       const segDiff = tSeg.total - ySeg.total;
-       if (segDiff > 10000 && segPay === 0) {
-         insights.push({
-           type: 'bad',
-           title: `${segmentNames[segKey]} Portföyünde Aksama Artışı & Sıfır Tahsilat`,
-           desc: `<b>${segmentNames[segKey]}</b> segmenti aksaması dünden bugüne <b>${fmtTL(segDiff)}</b> artmasına rağmen bugün bu gruptan <b>hiç tahsilat yapılamadı!</b>`
-         });
-       }
-     }
-   });
-   return insights;
- }
-
- function renderInsights() {
-   const panel = document.getElementById('insightsPanel');
-   const container = document.getElementById('insightsList');
-   if (!panel || !container) return;
-   const list = generateInsights();
-   if (list.length === 0) {
-     panel.style.display = 'none';
-     return;
-   }
-   panel.style.display = 'block';
-   let html = '';
-   list.forEach(ins => {
-     let icon = ' ';
-     if (ins.type === 'good') icon = ' ';
-     else if (ins.type === 'bad') icon = ' ';
-     else if (ins.type === 'warning') icon = ' ';
-     html += `       <div class="insight-item ${ins.type}">         <div style="font-size: 1.15rem; flex-shrink: 0;">${icon}</div>         <div>           <div style="font-weight: 700; margin-bottom: 2px;">${ins.title}</div>           <div style="opacity: 0.95;">${ins.desc}</div>         </div>       </div>     `;
-   });
-   container.innerHTML = html;
- }
- /* ---------- Segment Bazlı Risk Karnesi ---------- */
- function renderSegmentRiskCards() {
-   const grid = document.getElementById('segmentRiskGrid');
-   if (!grid) return;
-   const segs = [{
-     key: 'BIREYSEL',
-     name: 'Bireysel Portföy',
-     colorVar: '--blue-fill'
-   }, {
-     key: 'TARIM',
-     name: 'Tarım Portföyü',
-     colorVar: '--teal-fill'
-   }, {
-     key: 'TICARI',
-     name: 'Ticari / KOBİ',
-     colorVar: '--violet-fill'
-   }];
-   let html = '';
-   segs.forEach(seg => {
-     const t = segmentSplit(todayRows, seg.key);
-     const y = yestRows.length ? segmentSplit(yestRows, seg.key) : null;
-     const r31 = todayRows.filter(r => r.section === '31-91');
-     const pay = getSegmentPayment(todayRows, seg.key).tutar;
-     if (t.total <= 0) return;
-     const yapRatio = t.yap / t.total * 100;
-     // Gelişim Hesabı
-     let growthHtml = '';
-     let isGrowing = false;
-     if (y && y.total > 0) {
-       const diff = t.total - y.total;
-       const pct = diff / y.total * 100;
-       if (Math.abs(diff) > 100) {
-         isGrowing = diff > 0;
-         const cls = isGrowing ? 't-bad' : 't-good';
-         const arrow = isGrowing ? '▲' : '▼';
-         growthHtml = `<span class="${cls}" style="font-size:0.72rem; font-weight:700;">${arrow} ${fmtTL(Math.abs(diff))} (${isGrowing ? '+' : ''}${pct.toFixed(1)}%)</span>`;
-       } else {
-         growthHtml = '<span class="t-flat" style="font-size:0.72rem;">≈ Sabit</span>';
-       }
-     } else {
-       growthHtml = '<span class="t-flat" style="font-size:0.72rem;">Dün verisi yok</span>';
-     } // Risk Durumu Belirleme
-     let riskLevel = 'Düşük';
-     let riskClass = 'good';
-     if (isGrowing && pay === 0) {
-       riskLevel = 'Kritik';
-       riskClass = 'bad';
-     } else if (isGrowing || yapRatio > 50) {
-       riskLevel = 'Orta';
-       riskClass = 'warning';
-     }
-     html += `       <div class="panel" style="margin-bottom:0; display:flex; flex-direction:column; justify-content:space-between; gap:12px; border-top: 3px solid var(${seg.colorVar});">         <div style="display:flex; justify-content:space-between; align-items:center;">           <span style="font-size:0.8rem; font-weight:700; display:flex; align-items:center; gap:6px;">             ${seg.name}           </span>           <span class="pill ${riskClass}" style="font-size:0.65rem;">${riskLevel} Risk</span>         </div>                  <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:5px;">           <div>             <div style="font-size:0.65rem; color:var(--ink3); font-weight:600;">AKSAMA TUTARI</div>             <div style="font-family:'Roboto Mono'; font-size:0.95rem; font-weight:700; color:var(--ink); margin-top:2px;">${fmtTL(t.total)}</div>             <div style="margin-top:2px;">${growthHtml}</div>           </div>           <div>             <div style="font-size:0.65rem; color:var(--ink3); font-weight:600;">TAHSİLAT (BUGÜN)</div>             <div style="font-family:'Roboto Mono'; font-size:0.95rem; font-weight:700; color:var(--ink); margin-top:2px;">${fmtTL(pay)}</div>             <div style="font-size:0.68rem; color:var(--ink3); margin-top:2px;">%${t.total > 0 ? ((pay / t.total) * 100).toFixed(1) : '—'} oran</div>           </div>         </div>                  <div style="border-top:1px dashed var(--line); padding-top:10px; display:flex; justify-content:space-between; font-size:0.7rem; color:var(--ink2);">           <span>Yapılandırma Oranı:</span>           <span style="font-family:'Roboto Mono'; font-weight:700; color:var(--amber);">${yapRatio.toFixed(1)}%</span>         </div>       </div>     `;
-   });
-   grid.innerHTML = html;
- }
- /* ---------- Collection (tahsilat) ---------- */
- function renderCollection() {
-   const host = document.getElementById('collHost');
-   const gen = todayRows.filter(r => r.section === 'GENEL');
-   const fg = (inc) => gen.find(x => inc.every(k => x.normLabel.includes(k)));
-   const ustu = fg(['31 GUN USTU']);
-   const alti = fg(['31 GUN ALTI']);
-   const r31 = todayRows.filter(r => r.section === '31-91');
-   const fp = (inc) => r31.find(x => inc.every(k => x.normLabel.includes(k)));
-   const bireyselOd = getSegmentPayment(todayRows, 'BIREYSEL');
-   const tarimOd = getSegmentPayment(todayRows, 'TARIM');
-   const kobiOd = getSegmentPayment(todayRows, 'TICARI');
-   const hasAny = ustu || alti || bireyselOd.tutar || tarimOd.tutar || kobiOd.tutar;
-   if (!hasAny) {
-     host.innerHTML = '<div class="empty-note">Bu veride ödeme/tahsilat satırı bulunamadı.</div>';
-     return;
-   }
-   const totTut = (ustu?.tutar || 0) + (alti?.tutar || 0);
-   const totKisi = (ustu?.adet || 0) + (alti?.adet || 0);
-   const aksama31 = findRow(gen, ['31-91', 'TOPLAM AKSAMA']);
-   const rate = (aksama31 && aksama31.tutar > 0) ? (totTut / aksama31.tutar * 100) : null;
-   const stat = `     <div class="coll-top">       <div class="coll-stat">         <div class="k">Bugün Toplam Tahsilat</div>         <div class="v">${fmtTL(totTut)}</div>         <div class="x">${fmtNum(totKisi)} müşteri ödeme yaptı</div>       </div>       <div class="coll-stat alt">         <div class="k">Tahsilat Oranı</div>         <div class="v">${rate!=null?fmtPct(rate):'—'}</div>         <div class="x">31-91 aksamanın bugün tahsil edilen kısmı</div>       </div>     </div>`;
-   const split = `     <div class="coll-split">       <div class="half">         <div class="lab">31 Gün Üstü Ödeyenler</div>         <div class="num">${fmtTL(ustu?ustu.tutar:0)}</div>         <div class="ppl">${fmtNum(ustu?ustu.adet:0)} kişi · en riskli gruptan tahsilat</div>       </div>       <div class="half">         <div class="lab">31 Gün Altı Ödeyenler</div>         <div class="num">${fmtTL(alti?alti.tutar:0)}</div>         <div class="ppl">${fmtNum(alti?alti.adet:0)} kişi · erken ödeme</div>       </div>     </div>`;
-   const segCell = (nm, dotVar, o) => {
-     const paid = o && o.tutar > 0;
-     return `<div class="item${paid?' paid':' zero'}"><div class="nm"><span class="dot" style="background:var(${dotVar})"></span>${nm}</div><div class="amt">${fmtTL(o?o.tutar:0)}</div><div class="ppl">${fmtNum(o?o.adet:0)} kişi ödedi</div></div>`;
-   };
-   const seg = `     <div class="coll-seg-title">Segment bazında bugünkü ödeme (31-91 gün)</div>     <div class="coll-seg">       ${segCell('Bireysel','--blue-fill',bireyselOd)}       ${segCell('Tarım','--teal-fill',tarimOd)}       ${segCell('Ticari/KOBİ','--violet-fill',kobiOd)}     </div>`;
-   let chartContainerHtml = totTut > 0 ? `     <div class="no-print" style="display: flex; flex-direction: column; align-items: center; margin-top: 16px; border-top: 1px dashed var(--line); padding-top: 16px;">       <div style="font-size:0.76rem; font-weight:700; margin-bottom:10px; color:var(--ink2);">Tahsilat Kırılım Grafiği</div>       <div style="position: relative; height: 160px; width: 100%; max-width: 320px;">         <canvas id="chartCollection"></canvas>       </div>     </div>` : '';
-   let note = '';
-   if (rate != null) {
-     note = `<div class="note"><b>Nasıl okunur:</b> Bugün <b>${fmtNum(totKisi)} müşteri ${fmtTL(totTut)}</b> ödedi. Tahsilat <b class="hl-blue">dünle kıyaslanmaz</b>: ne kadar yüksekse o kadar iyidir, çünkü aksama portföyün eriyor demektir. 31 gün üstü ödeyenler en riskli gruptan tahsilat olduğu için özellikle değerlidir.</div>`;
-   }
-   host.innerHTML = stat + split + seg + chartContainerHtml + note;
- }
- /* ---------- Distribution ---------- */
- function segTotals(rows, section) {
-   const r = rows.filter(x => x.section === section && !isPaymentRow(x));
-   const find = (inc) => r.find(x => inc.every(k => x.normLabel.includes(k)));
-   const bir = find(['BIREYSEL', 'TOPLAM AKSAMA']);
-   const tar = find(['TARIM', 'TOPLAM AKSAMA']);
-   const tic = find(['KOBI', 'TOPLAM AKSAMA']) || find(['TICARI', 'TOPLAM AKSAMA']);
-   return {
-     Bireysel: bir ? {
-       tutar: bir.tutar,
-       adet: bir.adet
-     } : {
-       tutar: 0,
-       adet: 0
-     },
-     Tarım: tar ? {
-       tutar: tar.tutar,
-       adet: tar.adet
-     } : {
-       tutar: 0,
-       adet: 0
-     },
-     Ticari: tic ? {
-       tutar: tic.tutar,
-       adet: tic.adet
-     } : {
-       tutar: 0,
-       adet: 0
-     }
-   };
- }
-
- function distBlock(title, seg) {
-   const totAdet = seg.Bireysel.adet + seg.Tarım.adet + seg.Ticari.adet;
-   const totTut = seg.Bireysel.tutar + seg.Tarım.tutar + seg.Ticari.tutar;
-   if (totAdet <= 0 && totTut <= 0) return '';
-   const pa = (x) => totAdet > 0 ? x / totAdet * 100 : 0;
-   const pBir = pa(seg.Bireysel.adet),
-     pTar = pa(seg.Tarım.adet),
-     pTic = pa(seg.Ticari.adet);
-   const seglbl = (p) => p >= 14 ? fmtPct(p) : (p >= 7 ? Math.round(p) + '%' : '');
-   const cell = (nm, dotVar, o, p) => `<div class="item"><div class="nm"><span class="dot" style="background:var(${dotVar})"></span>${nm}</div><div class="ppl">${fmtNum(o.adet)} <span>kişi · ${fmtPct(p)}</span></div><div class="amt">${fmtTL(o.tutar)}</div></div>`;
-   return `<div class="seg-block">     <div class="seg-block-head"><div class="ttl">${title}</div><div class="meta">${fmtNum(totAdet)} kişi · ${fmtTL(totTut)}</div></div>     <div class="distbar">       <div class="seg d-bir" style="width:${pBir}%">${seglbl(pBir)}</div>       <div class="seg d-tar" style="width:${pTar}%">${seglbl(pTar)}</div>       <div class="seg d-tic" style="width:${pTic}%">${seglbl(pTic)}</div>     </div>     <div class="seg-legend">       ${cell('Bireysel','--blue-fill',seg.Bireysel,pBir)}       ${cell('Tarım','--teal-fill',seg.Tarım,pTar)}       ${cell('Ticari/KOBİ','--violet-fill',seg.Ticari,pTic)}     </div>   </div>`;
- }
-
- function renderDistribution() {
-   const s31 = segTotals(todayRows, '31-91');
-   const s15 = segTotals(todayRows, '15-91');
-   const html = distBlock('31-91 Gün', s31) + distBlock('15-91 Gün', s15);
-   // Segment doughnut charts side by side
-   let chartsHtml = '';
-   if (s31.Bireysel.tutar > 0 || s15.Bireysel.tutar > 0) {
-     chartsHtml = `       <div class="no-print" style="display: flex; flex-wrap: wrap; gap: 15px; margin-top: 18px; border-top: 1px dashed var(--line); padding-top: 18px; justify-content: space-around;">         <div style="display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 140px;">           <div style="font-size:0.72rem; font-weight:700; text-align:center; margin-bottom:8px; color:var(--ink2);">31-91 Gün Dağılımı (Tutar)</div>           <div style="position: relative; height: 130px; width: 100%;"><canvas id="chartSeg31"></canvas></div>         </div>         <div style="display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 140px;">           <div style="font-size:0.72rem; font-weight:700; text-align:center; margin-bottom:8px; color:var(--ink2);">15-91 Gün Dağılımı (Tutar)</div>           <div style="position: relative; height: 130px; width: 100%;"><canvas id="chartSeg15"></canvas></div>         </div>       </div>`;
-   }
-   const totA = s31.Bireysel.adet + s31.Tarım.adet + s31.Ticari.adet;
-   let note = '';
-   if (totA > 0) {
-     const pBir = s31.Bireysel.adet / totA * 100;
-     note = `<div class="note"><b>Nasıl okunur:</b> 31-91 günde aksayan müşterilerin <b>%${pBir.toLocaleString('tr-TR',{maximumFractionDigits:0})}'i bireysel</b>. Çubuğun en büyük dilimi en çok müşterinin olduğu kitleyi gösterir; ama az kişi büyük tutar tutuyorsa öncelik tutardadır.</div>`;
-   }
-   document.getElementById('distHost').innerHTML = (html || '<div class="empty-note">Segment verisi bulunamadı.</div>') + chartsHtml + note;
- }
- /* ---------- Restructuring ---------- */
- function splitYapNorm(rows) {
-   const detail = rows.filter(r => !r.normLabel.includes('TOPLAM') && !isPaymentRow(r));
-   let yap = 0,
-     nrm = 0;
-   detail.forEach(r => {
-     if (r.normLabel.includes('YAPILANDIRMA')) yap += r.tutar;
-     else nrm += r.tutar;
-   });
-   return {
-     yap,
-     norm: nrm,
-     total: yap + nrm
-   };
- }
-
- function renderRatio() {
-   const t = splitYapNorm(todayRows.filter(r => r.section === '31-91'));
-   const y = yestRows.length ? splitYapNorm(yestRows.filter(r => r.section === '31-91')) : null;
-   const host = document.getElementById('ratioHost');
-   if (t.total <= 0) {
-     host.innerHTML = '<div class="empty-note">31-91 gün segment verisi bulunamadı.</div>';
-     return;
-   }
-   const pY = t.yap / t.total * 100,
-     pN = t.norm / t.total * 100;
-   let verdict = '<div class="verdict flat"><span class="ic">○</span><span>Dün verisi yok, kıyas yapılamıyor.</span></div>';
-   if (y && y.total > 0) {
-     const pyY = y.yap / y.total * 100,
-       d = pY - pyY;
-     if (Math.abs(d) < 0.05) verdict = `<div class="verdict flat"><span class="ic">≈</span><span>Dünle aynı oran (${fmtPct(pyY)}).</span></div>`;
-     else {
-       const up = d > 0;
-       verdict = `<div class="verdict ${up?'bad':'good'}"><span class="ic">${up?'▲':'▼'}</span><span>Dünden ${fmtPct(Math.abs(d))} puan ${up?'arttı — yapılandırma yükü büyüyor':'azaldı — iyi yönde'}. Dün ${fmtPct(pyY)} idi.</span></div>`;
-     }
-   }
-   const yapLbl = pY >= 14 ? fmtPct(pY) : '';
-   const normLbl = pN >= 14 ? fmtPct(pN) : '';
-   host.innerHTML = `     <div class="ratio-card">       <div class="ratio-top">         <div class="ratio-big">${fmtPct(pY)}<span class="lbl">aksamanın tekrar-aksamış yapılandırma olan kısmı</span></div>         <div class="ratio-nums">           <div class="grp"><div class="k">Yapılandırma</div><div class="v">${fmtTL(t.yap)}</div></div>           <div class="grp"><div class="k">Normal ürün</div><div class="v">${fmtTL(t.norm)}</div></div>         </div>       </div>       <div class="stackbar">         <div class="seg seg-yap" style="width:${pY}%">${yapLbl}</div>         <div class="seg seg-norm" style="width:${pN}%">${normLbl}</div>       </div>       <div class="legend">         <span><span class="dot" style="background:var(--amber-fill)"></span>Yapılandırma (tekrar aksamış)</span>         <span><span class="dot" style="background:var(--blue-fill)"></span>Normal ürün</span>       </div>     </div>     ${verdict}`;
- }
-
- function segmentSplit(rows, key) {
-   const detail = rows.filter(r => r.section === '31-91' && !r.normLabel.includes('TOPLAM') && !isPaymentRow(r));
-   let yap = 0,
-     nrm = 0;
-   detail.forEach(r => {
-     const m = key === 'BIREYSEL' ? r.normLabel.includes('BIREYSEL') : key === 'TARIM' ? r.normLabel.includes('TARIM') : (r.normLabel.includes('TICARI') || r.normLabel.includes('KOBI') || r.normLabel.includes('ISLETME'));
-     if (!m) return;
-     if (r.normLabel.includes('YAPILANDIRMA')) yap += r.tutar;
-     else nrm += r.tutar;
-   });
-   return {
-     yap,
-     norm: nrm,
-     total: yap + nrm
-   };
- }
-
- function renderSubsegments() {
-   const segs = [
-     ['Bireysel', 'BIREYSEL'],
-     ['Tarım', 'TARIM'],
-     ['Ticari / KOBİ', 'TICARI']
-   ];
-   let rows = '',
-     any = false;
-   segs.forEach(([name, key]) => {
-     const t = segmentSplit(todayRows, key);
-     if (t.total <= 0) return;
-     any = true;
-     const y = yestRows.length ? segmentSplit(yestRows, key) : null;
-     const pY = t.yap / t.total * 100,
-       pN = t.norm / t.total * 100;
-     let chg = '';
-     if (y && y.total > 0) {
-       const d = pY - (y.yap / y.total * 100);
-       if (Math.abs(d) < 0.05) chg = '<span class="chg t-flat"> · dünle aynı</span>';
-       else chg = `<span class="chg ${d>0?'t-bad':'t-good'}"> · ${d>0?'▲':'▼'} ${fmtPct(Math.abs(d))} puan</span>`;
-     }
-     rows += `<div class="subseg-row">       <div class="name"><span>${name}</span><span class="pct">${fmtPct(pY)}</span></div>       <div class="subseg-track"><div class="yap" style="width:${pY}%"></div><div class="norm" style="width:${pN}%"></div></div>       <div class="subseg-sub">Yapılandırma ${fmtTL(t.yap)} · Normal ${fmtTL(t.norm)}${chg}</div>     </div>`;
-   });
-   document.getElementById('subsegHost').innerHTML = any ? `<div class="subseg-title">Segment bazında yapılandırma yükü (31-91 gün)</div>${rows}` : '';
- }
- /* ---------- Charts.js Grafik Fonksiyonları ---------- */
- // PDF/yazdırmada mouse olmadığı için tooltip hiç görünmez ve grafikler "kuru" kalır.
- // Bu plugin her bar/dilim üzerine DAİMA görünen rakam yazar; ekranda da, PDF'te de çalışır.
- if (typeof Chart !== 'undefined' && !Chart.__permanentLabelsRegistered) {
-   Chart.register({
-     id: 'permanentValueLabels',
-     afterDatasetsDraw: function(chart) {
-       const ctx = chart.ctx;
-       const isPrint = window.matchMedia && window.matchMedia('print').matches;
-       chart.data.datasets.forEach(function(dataset, dsIndex) {
-         const meta = chart.getDatasetMeta(dsIndex);
-         if (meta.hidden) return;
-         meta.data.forEach(function(el, i) {
-           const raw = dataset.data[i];
-           if (raw == null || raw === 0) return;
-           const text = (typeof fmtTLShort === 'function') ? fmtTLShort(raw) : fmtTL(raw);
-           ctx.save();
-           ctx.font = '700 11px Inter, sans-serif';
-           ctx.fillStyle = isPrint ? '#000' : (chart.config.type === 'doughnut' ? '#fff' : (window.__chartLabelColor || '#101826'));
-           ctx.textAlign = 'center';
-           ctx.textBaseline = 'middle';
-           if (chart.config.type === 'doughnut' || chart.config.type === 'pie') {
-             const pos = el.tooltipPosition ? el.tooltipPosition() : {
-               x: el.x,
-               y: el.y
-             };
-             ctx.fillStyle = '#fff';
-             ctx.strokeStyle = 'rgba(0,0,0,0.45)';
-             ctx.lineWidth = 3;
-             ctx.strokeText(text, pos.x, pos.y);
-             ctx.fillText(text, pos.x, pos.y);
-           } else if (chart.config.options && chart.config.options.indexAxis === 'y') {
-             ctx.textAlign = 'left';
-             ctx.fillText(text, el.x + 8, el.y);
-           } else {
-             ctx.fillText(text, el.x, el.y - 8);
-           }
-           ctx.restore();
-         });
-       });
-     }
-   });
-   Chart.__permanentLabelsRegistered = true;
- }
-
- function fmtTLShort(n) {
-   if (n == null || isNaN(n)) return '—';
-   const abs = Math.abs(n);
-   if (abs >= 1000000) return (n / 1000000).toLocaleString('tr-TR', {
-     maximumFractionDigits: 1
-   }) + ' Mn ₺';
-   if (abs >= 1000) return (n / 1000).toLocaleString('tr-TR', {
-     maximumFractionDigits: 0
-   }) + ' Bin ₺';
-   return n.toLocaleString('tr-TR') + ' ₺';
- }
-
- function destroyCharts() {
-   if (chartKPI) {
-     chartKPI.destroy();
-     chartKPI = null;
-   }
-   if (chartSeg31) {
-     chartSeg31.destroy();
-     chartSeg31 = null;
-   }
-   if (chartSeg15) {
-     chartSeg15.destroy();
-     chartSeg15 = null;
-   }
-   if (chartCollection) {
-     chartCollection.destroy();
-     chartCollection = null;
-   }
-   if (chartRatioTrend) {
-     chartRatioTrend.destroy();
-     chartRatioTrend = null;
-   }
- }
-
- function renderCharts() {
-   destroyCharts();
-   const chartNotice = document.getElementById('chartUnavailableNote');
-   if (typeof Chart === 'undefined') {
-     if (chartNotice) chartNotice.style.display = 'block';
-     ['chartKPIComparisonContainer', 'chartRatioTrendContainer'].forEach(function(id) {
-       const el = document.getElementById(id);
-       if (el) el.style.display = 'none';
-     });
-     return;
-   }
-   if (chartNotice) chartNotice.style.display = 'none';
-   const colors = getThemeColors();
-   const isDark = document.body.classList.contains('dark-mode');
-   // 1. KPI Comparison Chart
-   const gT = todayRows.filter(r => r.section === 'GENEL'),
-     gY = yestRows.filter(r => r.section === 'GENEL');
-   const t31 = (findRow(gT, ['31-91', 'TOPLAM AKSAMA']) || {}).tutar || 0;
-   const y31 = (findRow(gY, ['31-91', 'TOPLAM AKSAMA']) || {}).tutar || 0;
-   const t15 = (findRow(gT, ['15-91', 'TOPLAM AKSAMA']) || {}).tutar || 0;
-   const y15 = (findRow(gY, ['15-91', 'TOPLAM AKSAMA']) || {}).tutar || 0;
-   const tTakip = (findRow(gT, ['TAKIP BORCU']) || {}).tutar || 0;
-   const yTakip = (findRow(gY, ['TAKIP BORCU']) || {}).tutar || 0;
-   if (t31 > 0 || t15 > 0 || tTakip > 0) {
-     document.getElementById('chartKPIComparisonContainer').style.display = 'block';
-     const ctx = document.getElementById('chartKPIComparison').getContext('2d');
-     chartKPI = new Chart(ctx, {
-       type: 'bar',
-       data: {
-         labels: ['31-91 G. Aksama', '15-91 G. Aksama', 'Takip Borcu'],
-         datasets: [{
-           label: 'Bugün',
-           data: [t31, t15, tTakip],
-           backgroundColor: colors.accent,
-           borderRadius: 6
-         }, ...(yestRows.length ? [{
-           label: 'Son iş günü',
-           data: [y31, y15, yTakip],
-           backgroundColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(16,24,38,0.15)',
-           borderRadius: 6
-         }] : [])]
-       },
-       options: {
-         responsive: true,
-         maintainAspectRatio: false,
-         plugins: {
-           legend: {
-             labels: {
-               color: colors.textColor,
-               font: {
-                 family: 'Inter',
-                 weight: 'bold'
-               }
-             }
-           },
-           tooltip: {
-             callbacks: {
-               label: function(context) {
-                 return context.dataset.label + ': ' + fmtTL(context.raw);
-               }
-             }
-           }
-         },
-         scales: {
-           x: {
-             grid: {
-               display: false
-             },
-             ticks: {
-               color: colors.textColor,
-               font: {
-                 family: 'Inter'
-               }
-             }
-           },
-           y: {
-             grid: {
-               color: colors.gridColor
-             },
-             ticks: {
-               color: colors.textColor,
-               font: {
-                 family: 'Roboto Mono',
-                 size: 10
-               },
-               callback: function(value) {
-                 return fmtTL(value);
-               }
-             }
-           }
-         }
-       }
-     });
-   } else {
-     document.getElementById('chartKPIComparisonContainer').style.display = 'none';
-   } // 2. Collection Chart
-   const ustu = gT.find(x => ['31 GUN USTU'].every(k => x.normLabel.includes(k)))?.tutar || 0;
-   const alti = gT.find(x => ['31 GUN ALTI'].every(k => x.normLabel.includes(k)))?.tutar || 0;
-   if ((ustu > 0 || alti > 0) && document.getElementById('chartCollection')) {
-     const ctx = document.getElementById('chartCollection').getContext('2d');
-     chartCollection = new Chart(ctx, {
-       type: 'doughnut',
-       data: {
-         labels: ['31 Gün Üstü Ödeyenler', '31 Gün Altı Ödeyenler'],
-         datasets: [{
-           data: [ustu, alti],
-           backgroundColor: [colors.amber, colors.green],
-           borderWidth: 2,
-           borderColor: isDark ? '#161D2B' : '#FFFFFF'
-         }]
-       },
-       options: {
-         responsive: true,
-         maintainAspectRatio: false,
-         plugins: {
-           legend: {
-             display: true,
-             position: 'bottom',
-             labels: {
-               color: colors.textColor,
-               font: {
-                 family: 'Inter',
-                 size: 11
-               }
-             }
-           },
-           tooltip: {
-             callbacks: {
-               label: (c) => c.label + ': ' + fmtTL(c.raw)
-             }
-           }
-         },
-         cutout: '65%'
-       }
-     });
-   } // 3. Segment Doughnut Charts
-   const s31 = segTotals(todayRows, '31-91');
-   const s15 = segTotals(todayRows, '15-91');
-   if ((s31.Bireysel.tutar > 0 || s31.Tarım.tutar > 0 || s31.Ticari.tutar > 0) && document.getElementById('chartSeg31')) {
-     const ctx = document.getElementById('chartSeg31').getContext('2d');
-     chartSeg31 = new Chart(ctx, {
-       type: 'doughnut',
-       data: {
-         labels: ['Bireysel', 'Tarım', 'Ticari/KOBİ'],
-         datasets: [{
-           data: [s31.Bireysel.tutar, s31.Tarım.tutar, s31.Ticari.tutar],
-           backgroundColor: [colors.blue, colors.teal, colors.violet],
-           borderWidth: 2,
-           borderColor: isDark ? '#161D2B' : '#FFFFFF'
-         }]
-       },
-       options: {
-         responsive: true,
-         maintainAspectRatio: false,
-         plugins: {
-           legend: {
-             display: false
-           },
-           tooltip: {
-             callbacks: {
-               label: (c) => c.label + ': ' + fmtTL(c.raw)
-             }
-           }
-         },
-         cutout: '65%'
-       }
-     });
-   }
-   if ((s15.Bireysel.tutar > 0 || s15.Tarım.tutar > 0 || s15.Ticari.tutar > 0) && document.getElementById('chartSeg15')) {
-     const ctx = document.getElementById('chartSeg15').getContext('2d');
-     chartSeg15 = new Chart(ctx, {
-       type: 'doughnut',
-       data: {
-         labels: ['Bireysel', 'Tarım', 'Ticari/KOBİ'],
-         datasets: [{
-           data: [s15.Bireysel.tutar, s15.Tarım.tutar, s15.Ticari.tutar],
-           backgroundColor: [colors.blue, colors.teal, colors.violet],
-           borderWidth: 2,
-           borderColor: isDark ? '#161D2B' : '#FFFFFF'
-         }]
-       },
-       options: {
-         responsive: true,
-         maintainAspectRatio: false,
-         plugins: {
-           legend: {
-             display: false
-           },
-           tooltip: {
-             callbacks: {
-               label: (c) => c.label + ': ' + fmtTL(c.raw)
-             }
-           }
-         },
-         cutout: '65%'
-       }
-     });
-   } // 4. Restructuring Trend Line Chart
-   const history = getHistory();
-   const points = [];
-   history.forEach(h => {
-     const r31 = h.rows.filter(r => r.section === '31-91');
-     const t = splitYapNorm(r31);
-     if (t.total > 0) {
-       points.push({
-         date: h.date,
-         ratio: (t.yap / t.total * 100)
-       });
-     }
-   });
-   if (points.length >= 2 && document.getElementById('chartRatioTrend')) {
-     document.getElementById('chartRatioTrendContainer').style.display = 'block';
-     const ctx = document.getElementById('chartRatioTrend').getContext('2d');
-     chartRatioTrend = new Chart(ctx, {
-       type: 'line',
-       data: {
-         labels: points.map(p => p.date),
-         datasets: [{
-           label: 'Yapılandırma Oranı %',
-           data: points.map(p => p.ratio),
-           borderColor: colors.amber,
-           backgroundColor: isDark ? 'rgba(252, 196, 25, 0.08)' : 'rgba(220, 138, 40, 0.08)',
-           fill: true,
-           tension: 0,
-           spanGaps: false,
-           borderWidth: 3,
-           pointBackgroundColor: colors.amber,
-           pointHoverRadius: 7
-         }]
-       },
-       options: {
-         responsive: true,
-         maintainAspectRatio: false,
-         plugins: {
-           legend: {
-             display: false
-           },
-           tooltip: {
-             callbacks: {
-               label: (c) => fmtPct(c.raw)
-             }
-           }
-         },
-         scales: {
-           x: {
-             grid: {
-               display: false
-             },
-             ticks: {
-               color: colors.textColor,
-               font: {
-                 family: 'Inter',
-                 size: 10
-               }
-             }
-           },
-           y: {
-             grid: {
-               color: colors.gridColor
-             },
-             ticks: {
-               color: colors.textColor,
-               font: {
-                 family: 'Roboto Mono',
-                 size: 10
-               },
-               callback: (value) => value.toFixed(1) + '%'
-             }
-           }
-         }
-       }
-     });
-   } else {
-     if (document.getElementById('chartRatioTrendContainer')) {
-       document.getElementById('chartRatioTrendContainer').style.display = 'none';
-     }
-   }
- }
- /* ---------- Tablolar ---------- */
- const sectionTitles = {
-   'GENEL': 'Genel Göstergeler',
-   '31-91': '31-91 Gün Detayı',
-   '15-91': '15-91 Gün Detayı'
- };
- document.getElementById('tabs').addEventListener('click', (e) => {
-   const tab = e.target.closest('.tab');
-   if (!tab) return;
-   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-   tab.classList.add('active');
-   document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-   document.getElementById('tableHost-' + tab.dataset.section).classList.add('active');
- });
-
- function renderSectionTable(section) {
-   const host = document.getElementById('tableHost-' + section);
-   const tRows = todayRows.filter(r => r.section === section);
-   const yMap = {};
-   yestRows.filter(r => r.section === section).forEach(r => yMap[r.normLabel] = r);
-   if (tRows.length === 0) {
-     host.innerHTML = `<div class="print-only-title">${sectionTitles[section]}</div><div class="empty-note">Veri yok.</div>`;
-     return;
-   }
-   let html = `<div class="print-only-title">${sectionTitles[section]}</div><table><thead><tr><th>Kalem</th><th>Bugün</th><th>Dün</th><th>Fark</th><th>Adet</th></tr></thead><tbody>`;
-   tRows.forEach(r => {
-     const y = yMap[r.normLabel];
-     let dHtml = '<span class="delta-cell flat">—</span>';
-     if (y) {
-       const d = r.tutar - y.tutar;
-       const isPay = isPaymentRow(r);
-       // Aksama/borç satırlarında artış kötü (kırmızı); ödeme/tahsilat satırlarında AZALIŞ kötü (kırmızı)
-       const bad = isPay ? (d < 0) : (d > 0);
-       const cls = Math.abs(d) < 0.5 ? 'flat' : (bad ? 'up' : 'down');
-       const sg = d > 0 ? '+' : '';
-       dHtml = `<span class="delta-cell ${cls}">${sg}${fmtTL(d)}</span>`;
-     }
-     html += `<tr><td class="lbl">${r.label}</td><td>${fmtTL(r.tutar)}</td><td>${y?fmtTL(y.tutar):'—'}</td><td>${dHtml}</td><td>${fmtNum(r.adet)}</td></tr>`;
-   });
-   html += '</tbody></table>';
-   host.innerHTML = html;
- }
- /* ---------- Dışa Aktarımlar ---------- */
- function exportExcel() {
-   if (typeof XLSX === 'undefined') {
-     alert('Excel kütüphanesi yüklenemedi.');
-     return;
-   }
-   const wb = XLSX.utils.book_new();
-   const gT = todayRows.filter(r => r.section === 'GENEL'),
-     gY = yestRows.filter(r => r.section === 'GENEL');
-   const get = (rows, k) => {
-     const r = findRow(rows, k);
-     return r ? r.tutar : '';
-   };
-   const s31 = segTotals(todayRows, '31-91'),
-     s15 = segTotals(todayRows, '15-91');
-   const t = splitYapNorm(todayRows.filter(r => r.section === '31-91'));
-   const y = yestRows.length ? splitYapNorm(yestRows.filter(r => r.section === '31-91')) : null;
-   const summary = [
-     ['AKSAMA TAKİP PANOSU - ÖZET'],
-     ['Bugün', todayDate || ''],
-     ['Dün', yestDate || ''],
-     [],
-     ['DÜNE GÖRE', 'Bugün', 'Dün'],
-     ['31-91 Gün Toplam Aksama', get(gT, ['31-91', 'TOPLAM AKSAMA']), get(gY, ['31-91', 'TOPLAM AKSAMA'])],
-     ['15-91 Gün Toplam Aksama', get(gT, ['15-91', 'TOPLAM AKSAMA']), get(gY, ['15-91', 'TOPLAM AKSAMA'])],
-     ['Toplam Takip Borcu', get(gT, ['TAKIP BORCU']), get(gY, ['TAKIP BORCU'])],
-     [],
-     ['SEGMENT DAĞILIMI', 'Kişi (Adet)', 'Tutar'],
-     ['31-91 Bireysel', s31.Bireysel.adet, s31.Bireysel.tutar],
-     ['31-91 Tarım', s31.Tarım.adet, s31.Tarım.tutar],
-     ['31-91 Ticari/KOBİ', s31.Ticari.adet, s31.Ticari.tutar],
-     ['15-91 Bireysel', s15.Bireysel.adet, s15.Bireysel.tutar],
-     ['15-91 Tarım', s15.Tarım.adet, s15.Tarım.tutar],
-     ['15-91 Ticari/KOBİ', s15.Ticari.adet, s15.Ticari.tutar],
-     [],
-     ['YAPILANDIRMA (31-91)', 'Bugün', 'Dün'],
-     ['Yapılandırma (tekrar aksamış)', t.yap, y ? y.yap : ''],
-     ['Normal Ürün', t.norm, y ? y.norm : ''],
-     ['Yapılandırma Oranı %', t.total ? (t.yap / t.total * 100) : '', (y && y.total) ? (y.yap / y.total * 100) : ''],
-     [],
-     ['BUGÜNKÜ TAHSİLAT', 'Tutar', 'Kişi'],
-     ['31 Gün Üstü Ödeyenler', (findRow(gT, ['31 GUN USTU']) || {}).tutar || 0, (findRow(gT, ['31 GUN USTU']) || {}).adet || 0],
-     ['31 Gün Altı Ödeyenler', (findRow(gT, ['31 GUN ALTI']) || {}).tutar || 0, (findRow(gT, ['31 GUN ALTI']) || {}).adet || 0]
-   ];
-   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summary), 'Özet');
-   ['GENEL', '31-91', '15-91'].forEach(sec => {
-     const tRows = todayRows.filter(r => r.section === sec);
-     const yMap = {};
-     yestRows.filter(r => r.section === sec).forEach(r => yMap[r.normLabel] = r);
-     const aoa = [
-       ['Kalem', 'Bugün Tutar', 'Dün Tutar', 'Fark', 'Bugün Adet', 'Dün Adet']
-     ];
-     tRows.forEach(r => {
-       const yy = yMap[r.normLabel];
-       aoa.push([r.label, r.tutar, yy ? yy.tutar : '', yy ? (r.tutar - yy.tutar) : '', r.adet, yy ? yy.adet : '']);
-     });
-     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), sec === 'GENEL' ? 'Genel' : sec + ' Gun');
-   });
-   XLSX.writeFile(wb, 'aksama_panosu_' + (todayDate ? todayDate.replace(/\./g, '-') : 'rapor') + '.xlsx');
- }
-
- function exportPDF() { // Fontlar (Roboto Mono / Inter) tam yüklenmeden yazdırırsak tarayıcı geçici
-   // yedek fontu kullanır -> I/L harfleri ve Türkçe karakterler (İ,ı,ş,ğ) bozuk çıkar.
-   // document.fonts.ready ile fontların kesin yüklendiğinden emin olup öyle yazdırıyoruz.
-   if (document.fonts && document.fonts.ready) {
-     document.fonts.ready.then(function() {
-       setTimeout(function() {
-         window.print();
-       }, 50);
-     });
-   } else {
-     window.print();
-   }
- }
-
- function loadDemoData() {
-   localStorage.removeItem('aksama_panosu_history');
-   {
-     const p = parseBlock("16.06.2026\nAKSAMA VAZİYETİ\n\nTUTAR\tADET\n31-91 GÜN TOPLAM AKSAMA\t19.231.450,22\t92\n15-91 GÜN TOPLAM AKSAMA\t33.800.000,00\t176\nTOPLAM TAKIP BORCU\t14.087.447,65\t136\n31 GÜN ÜSTÜ ÖDEME YAPANLAR\t1.574.508,04\t3\n31 GÜN ALTI ÖDEME YAPANLAR\t156.418,00\t7\nBUGÜN YAPILDIRILAN KREDİ\t0,00\t0\nPORTFÖY BAZLI VAZİYET 31-91 GÜN\t\t\nBireysel Ürünler\t2.933.926,55\t39\nBireysel Yapılandırma\t13.870.190,60\t33\nTarım\t654.612,66\t3\nTarım Yapılandırma\t264.692,34\t2\nTicari / İşletme\t916.568,30\t9\nTicari Yapılandırma\t206.290,73\t1\nTARIM TOPLAM AKSAMA\t925.000,00\t4\nBİREYSEL TOPLAM AKSAMA\t16.804.117,15\t72\nKOBİ/PERA. TOPLAM AKSAMA\t1.085.000,00\t9\nTOPLAM YAPILANDIRMA KREDİSİ\t14.341.173,67\t36\nBireysel Ürünler Ödenen\t223.416,04\t1\nBireysel Yapılandırma Ödenen\t1.347.017,00\t2\nTarım Ödenen\t120.000,00\t1\nTarım Yapılandırma Ödenen\t90.000,00\t1\nTicari / İşletme Ödenen\t143.500,50\t1\nTicari Yapılandırma Ödenen\t35.000,00\t1\nTARIM TOPLAM ÖDEME\t0,00\t0\nBİREYSEL TOPLAM ÖDEME\t1.570.433,04\t3\nKOBİ/PERA. TOPLAM ÖDEME\t0,00\t0\nPORTFÖY BAZLI VAZİYET 15-91 GÜN\t\t\nBireysel Ürünler\t9.547.196,24\t117\nBireysel Yapılandırma\t15.459.127,22\t39\nTarım\t6.654.612,66\t4\nTarım Yapılandırma\t264.692,34\t2\nTicari / İşletme\t1.844.410,62\t14\nTicari Yapılandırma\t262.115,94\t2\nTARIM TOPLAM AKSAMA\t925.000,00\t6\nBİREYSEL TOPLAM AKSAMA\t25.006.323,46\t156\nKOBİ/PERA. TOPLAM AKSAMA\t1.085.000,00\t16\nTOPLAM YAPILANDIRMA KREDİSİ\t15.985.935,50\t43\nBireysel Ürünler Ödenen\t379.834,04\t8\nBireysel Yapılandırma Ödenen\t1.347.017,00\t2\nTarım Ödenen\t120.000,00\t1\nTarım Yapılandırma Ödenen\t90.000,00\t1\nTicari / İşletme Ödenen\t143.500,50\t1\nTicari Yapılandırma Ödenen\t35.000,00\t1\nTARIM TOPLAM ÖDEME\t0,00\t0\nBİREYSEL TOPLAM ÖDEME\t1.726.851,04\t10\nKOBİ/PERA. TOPLAM ÖDEME\t0,00\t0");
-     if (p.date && p.rows.length) saveToHistory(p.date, p.rows);
-   } {
-     const p = parseBlock("17.06.2026\nAKSAMA VAZİYETİ\n\nTUTAR\tADET\n31-91 GÜN TOPLAM AKSAMA\t18.846.281,18\t88\n15-91 GÜN TOPLAM AKSAMA\t33.800.000,00\t176\nTOPLAM TAKIP BORCU\t14.087.447,65\t136\n31 GÜN ÜSTÜ ÖDEME YAPANLAR\t1.574.508,04\t3\n31 GÜN ALTI ÖDEME YAPANLAR\t156.418,00\t7\nBUGÜN YAPILDIRILAN KREDİ\t0,00\t0\nPORTFÖY BAZLI VAZİYET 31-91 GÜN\t\t\nBireysel Ürünler\t2.933.926,55\t39\nBireysel Yapılandırma\t13.870.190,60\t33\nTarım\t654.612,66\t3\nTarım Yapılandırma\t264.692,34\t2\nTicari / İşletme\t916.568,30\t9\nTicari Yapılandırma\t206.290,73\t1\nTARIM TOPLAM AKSAMA\t905.000,00\t4\nBİREYSEL TOPLAM AKSAMA\t16.804.117,15\t72\nKOBİ/PERA. TOPLAM AKSAMA\t1.085.000,00\t9\nTOPLAM YAPILANDIRMA KREDİSİ\t14.341.173,67\t36\nBireysel Ürünler Ödenen\t223.416,04\t1\nBireysel Yapılandırma Ödenen\t1.347.017,00\t2\nTarım Ödenen\t120.000,00\t1\nTarım Yapılandırma Ödenen\t90.000,00\t1\nTicari / İşletme Ödenen\t143.500,50\t1\nTicari Yapılandırma Ödenen\t35.000,00\t1\nTARIM TOPLAM ÖDEME\t125.000,00\t2\nBİREYSEL TOPLAM ÖDEME\t1.570.433,04\t3\nKOBİ/PERA. TOPLAM ÖDEME\t155.000,00\t2\nPORTFÖY BAZLI VAZİYET 15-91 GÜN\t\t\nBireysel Ürünler\t9.547.196,24\t117\nBireysel Yapılandırma\t15.459.127,22\t39\nTarım\t6.654.612,66\t4\nTarım Yapılandırma\t264.692,34\t2\nTicari / İşletme\t1.844.410,62\t14\nTicari Yapılandırma\t262.115,94\t2\nTARIM TOPLAM AKSAMA\t905.000,00\t6\nBİREYSEL TOPLAM AKSAMA\t25.006.323,46\t156\nKOBİ/PERA. TOPLAM AKSAMA\t1.085.000,00\t16\nTOPLAM YAPILANDIRMA KREDİSİ\t15.985.935,50\t43\nBireysel Ürünler Ödenen\t379.834,04\t8\nBireysel Yapılandırma Ödenen\t1.347.017,00\t2\nTarım Ödenen\t120.000,00\t1\nTarım Yapılandırma Ödenen\t90.000,00\t1\nTicari / İşletme Ödenen\t143.500,50\t1\nTicari Yapılandırma Ödenen\t35.000,00\t1\nTARIM TOPLAM ÖDEME\t125.000,00\t2\nBİREYSEL TOPLAM ÖDEME\t1.726.851,04\t10\nKOBİ/PERA. TOPLAM ÖDEME\t155.000,00\t2");
-     if (p.date && p.rows.length) saveToHistory(p.date, p.rows);
-   } {
-     const p = parseBlock("18.06.2026\nAKSAMA VAZİYETİ\n\nTUTAR\tADET\n31-91 GÜN TOPLAM AKSAMA\t18.700.000,00\t88\n15-91 GÜN TOPLAM AKSAMA\t33.800.000,00\t176\nTOPLAM TAKIP BORCU\t14.087.447,65\t136\n31 GÜN ÜSTÜ ÖDEME YAPANLAR\t1.574.508,04\t3\n31 GÜN ALTI ÖDEME YAPANLAR\t156.418,00\t7\nBUGÜN YAPILDIRILAN KREDİ\t0,00\t0\nPORTFÖY BAZLI VAZİYET 31-91 GÜN\t\t\nBireysel Ürünler\t2.933.926,55\t39\nBireysel Yapılandırma\t13.870.190,60\t33\nTarım\t654.612,66\t3\nTarım Yapılandırma\t264.692,34\t2\nTicari / İşletme\t916.568,30\t9\nTicari Yapılandırma\t206.290,73\t1\nTARIM TOPLAM AKSAMA\t905.000,00\t4\nBİREYSEL TOPLAM AKSAMA\t16.804.117,15\t72\nKOBİ/PERA. TOPLAM AKSAMA\t1.085.000,00\t9\nTOPLAM YAPILANDIRMA KREDİSİ\t14.341.173,67\t36\nBireysel Ürünler Ödenen\t223.416,04\t1\nBireysel Yapılandırma Ödenen\t1.347.017,00\t2\nTarım Ödenen\t120.000,00\t1\nTarım Yapılandırma Ödenen\t90.000,00\t1\nTicari / İşletme Ödenen\t143.500,50\t1\nTicari Yapılandırma Ödenen\t35.000,00\t1\nTARIM TOPLAM ÖDEME\t95.000,00\t1\nBİREYSEL TOPLAM ÖDEME\t1.570.433,04\t3\nKOBİ/PERA. TOPLAM ÖDEME\t80.000,00\t1\nPORTFÖY BAZLI VAZİYET 15-91 GÜN\t\t\nBireysel Ürünler\t9.547.196,24\t117\nBireysel Yapılandırma\t15.459.127,22\t39\nTarım\t6.654.612,66\t4\nTarım Yapılandırma\t264.692,34\t2\nTicari / İşletme\t1.844.410,62\t14\nTicari Yapılandırma\t262.115,94\t2\nTARIM TOPLAM AKSAMA\t905.000,00\t6\nBİREYSEL TOPLAM AKSAMA\t25.006.323,46\t156\nKOBİ/PERA. TOPLAM AKSAMA\t1.085.000,00\t16\nTOPLAM YAPILANDIRMA KREDİSİ\t15.985.935,50\t43\nBireysel Ürünler Ödenen\t379.834,04\t8\nBireysel Yapılandırma Ödenen\t1.347.017,00\t2\nTarım Ödenen\t120.000,00\t1\nTarım Yapılandırma Ödenen\t90.000,00\t1\nTicari / İşletme Ödenen\t143.500,50\t1\nTicari Yapılandırma Ödenen\t35.000,00\t1\nTARIM TOPLAM ÖDEME\t95.000,00\t1\nBİREYSEL TOPLAM ÖDEME\t1.726.851,04\t10\nKOBİ/PERA. TOPLAM ÖDEME\t80.000,00\t1");
-     if (p.date && p.rows.length) saveToHistory(p.date, p.rows);
-   } {
-     const p = parseBlock("23.06.2026\nAKSAMA VAZİYETİ\n\nTUTAR\tADET\n31-91 GÜN TOPLAM AKSAMA\t18.680.000,00\t88\n15-91 GÜN TOPLAM AKSAMA\t33.800.000,00\t176\nTOPLAM TAKIP BORCU\t14.087.447,65\t136\n31 GÜN ÜSTÜ ÖDEME YAPANLAR\t1.574.508,04\t3\n31 GÜN ALTI ÖDEME YAPANLAR\t156.418,00\t7\nBUGÜN YAPILDIRILAN KREDİ\t0,00\t0\nPORTFÖY BAZLI VAZİYET 31-91 GÜN\t\t\nBireysel Ürünler\t2.933.926,55\t39\nBireysel Yapılandırma\t13.870.190,60\t33\nTarım\t654.612,66\t3\nTarım Yapılandırma\t264.692,34\t2\nTicari / İşletme\t916.568,30\t9\nTicari Yapılandırma\t206.290,73\t1\nTARIM TOPLAM AKSAMA\t905.000,00\t4\nBİREYSEL TOPLAM AKSAMA\t16.804.117,15\t72\nKOBİ/PERA. TOPLAM AKSAMA\t1.085.000,00\t9\nTOPLAM YAPILANDIRMA KREDİSİ\t14.341.173,67\t36\nBireysel Ürünler Ödenen\t223.416,04\t1\nBireysel Yapılandırma Ödenen\t1.347.017,00\t2\nTarım Ödenen\t120.000,00\t1\nTarım Yapılandırma Ödenen\t90.000,00\t1\nTicari / İşletme Ödenen\t143.500,50\t1\nTicari Yapılandırma Ödenen\t35.000,00\t1\nTARIM TOPLAM ÖDEME\t110.000,00\t1\nBİREYSEL TOPLAM ÖDEME\t1.570.433,04\t3\nKOBİ/PERA. TOPLAM ÖDEME\t120.000,00\t1\nPORTFÖY BAZLI VAZİYET 15-91 GÜN\t\t\nBireysel Ürünler\t9.547.196,24\t117\nBireysel Yapılandırma\t15.459.127,22\t39\nTarım\t6.654.612,66\t4\nTarım Yapılandırma\t264.692,34\t2\nTicari / İşletme\t1.844.410,62\t14\nTicari Yapılandırma\t262.115,94\t2\nTARIM TOPLAM AKSAMA\t905.000,00\t6\nBİREYSEL TOPLAM AKSAMA\t25.006.323,46\t156\nKOBİ/PERA. TOPLAM AKSAMA\t1.085.000,00\t16\nTOPLAM YAPILANDIRMA KREDİSİ\t15.985.935,50\t43\nBireysel Ürünler Ödenen\t379.834,04\t8\nBireysel Yapılandırma Ödenen\t1.347.017,00\t2\nTarım Ödenen\t120.000,00\t1\nTarım Yapılandırma Ödenen\t90.000,00\t1\nTicari / İşletme Ödenen\t143.500,50\t1\nTicari Yapılandırma Ödenen\t35.000,00\t1\nTARIM TOPLAM ÖDEME\t110.000,00\t1\nBİREYSEL TOPLAM ÖDEME\t1.726.851,04\t10\nKOBİ/PERA. TOPLAM ÖDEME\t120.000,00\t1");
-     if (p.date && p.rows.length) saveToHistory(p.date, p.rows);
-   }
-   document.getElementById('todayInput').value = "24.06.2026\nAKSAMA VAZİYETİ\n\nTUTAR\tADET\n31-91 GÜN TOPLAM AKSAMA\t18.620.000,00\t88\n15-91 GÜN TOPLAM AKSAMA\t33.800.000,00\t176\nTOPLAM TAKIP BORCU\t14.087.447,65\t136\n31 GÜN ÜSTÜ ÖDEME YAPANLAR\t1.574.508,04\t3\n31 GÜN ALTI ÖDEME YAPANLAR\t156.418,00\t7\nBUGÜN YAPILDIRILAN KREDİ\t0,00\t0\nPORTFÖY BAZLI VAZİYET 31-91 GÜN\t\t\nBireysel Ürünler\t2.933.926,55\t39\nBireysel Yapılandırma\t13.870.190,60\t33\nTarım\t654.612,66\t3\nTarım Yapılandırma\t264.692,34\t2\nTicari / İşletme\t916.568,30\t9\nTicari Yapılandırma\t206.290,73\t1\nTARIM TOPLAM AKSAMA\t905.000,00\t4\nBİREYSEL TOPLAM AKSAMA\t16.804.117,15\t72\nKOBİ/PERA. TOPLAM AKSAMA\t1.085.000,00\t9\nTOPLAM YAPILANDIRMA KREDİSİ\t14.341.173,67\t36\nBireysel Ürünler Ödenen\t223.416,04\t1\nBireysel Yapılandırma Ödenen\t1.347.017,00\t2\nTarım Ödenen\t120.000,00\t1\nTarım Yapılandırma Ödenen\t90.000,00\t1\nTicari / İşletme Ödenen\t143.500,50\t1\nTicari Yapılandırma Ödenen\t35.000,00\t1\nTARIM TOPLAM ÖDEME\t210.000,00\t2\nBİREYSEL TOPLAM ÖDEME\t1.570.433,04\t3\nKOBİ/PERA. TOPLAM ÖDEME\t178.500,50\t2\nPORTFÖY BAZLI VAZİYET 15-91 GÜN\t\t\nBireysel Ürünler\t9.547.196,24\t117\nBireysel Yapılandırma\t15.459.127,22\t39\nTarım\t6.654.612,66\t4\nTarım Yapılandırma\t264.692,34\t2\nTicari / İşletme\t1.844.410,62\t14\nTicari Yapılandırma\t262.115,94\t2\nTARIM TOPLAM AKSAMA\t905.000,00\t6\nBİREYSEL TOPLAM AKSAMA\t25.006.323,46\t156\nKOBİ/PERA. TOPLAM AKSAMA\t1.085.000,00\t16\nTOPLAM YAPILANDIRMA KREDİSİ\t15.985.935,50\t43\nBireysel Ürünler Ödenen\t379.834,04\t8\nBireysel Yapılandırma Ödenen\t1.347.017,00\t2\nTarım Ödenen\t120.000,00\t1\nTarım Yapılandırma Ödenen\t90.000,00\t1\nTicari / İşletme Ödenen\t143.500,50\t1\nTicari Yapılandırma Ödenen\t35.000,00\t1\nTARIM TOPLAM ÖDEME\t210.000,00\t2\nBİREYSEL TOPLAM ÖDEME\t1.726.851,04\t10\nKOBİ/PERA. TOPLAM ÖDEME\t178.500,50\t2";
-   document.getElementById('yestInput').value = '';
-   setInputFeedback('<b>Örnek veriler yüklendi.</b> 16-18 ve 23 Haziran hafızada, 24 Haziran bugünün verisi olarak kutuya eklendi. 19-22 atlandı; kıyas otomatik son iş gününe (23.06) yapılacak. Şimdi <b>Panoyu Oluştur</b>\'a basın.', 'success');
-   document.getElementById('todayInput').scrollIntoView({
-     behavior: 'smooth',
-     block: 'start'
-   });
- }
-
- function renderActionSummary() {
-   const panel = document.getElementById('actionSummaryPanel');
-   const list = document.getElementById('actionSummaryList');
-   const rollBox = document.getElementById('actionRollBox');
-   if (!panel || !list || !rollBox) return;
-   const insights = generateInsights();
-   const roll = calcNetRollMovement();
-   const stripHtml = function(s) {
-     return String(s).replace(/<[^>]*>/g, '');
-   };
-   if (roll) {
-     const bad = roll.delta31 > 0;
-     const cls = bad ? 't-bad' : roll.delta31 < 0 ? 't-good' : 't-flat';
-     const arrow = roll.delta31 > 0 ? '\u25b2' : roll.delta31 < 0 ? '\u25bc' : '\u2248';
-     const word = roll.delta31 > 0 ? 'k\u00f6t\u00fcle\u015fti' : roll.delta31 < 0 ? 'iyile\u015fti' : 'sabit';
-     rollBox.innerHTML = '<div class="note" style="margin:0;"><b>31-91 net hareket (yakla\u015f\u0131k):</b> Son i\u015f g\u00fcn\u00fcne g\u00f6re 31-91 aksama <span class="' + cls + '" style="font-weight:700;">' + arrow + ' ' + fmtTL(Math.abs(roll.delta31)) + ' ' + word + '</span>. Erken dilim (15-30 g\u00fcn) de\u011fi\u015fimi: <b>' + fmtTL(roll.deltaEarly) + '</b>. <span style="color:var(--ink3);">Hafta sonu/tatil atland\u0131ysa k\u0131yas otomatik son girilen i\u015f g\u00fcn\u00fcne yap\u0131l\u0131r.</span></div>';
-   } else {
-     rollBox.innerHTML = '<div class="note" style="margin:0;"><b>31-91 net hareket:</b> K\u0131yas i\u00e7in \u00f6nceki g\u00fcn verisi gerekli.</div>';
-   }
-   const actions = insights.slice(0, 3).map(function(ins) {
-     return '<li><b>' + ins.title + '</b> \u2014 ' + stripHtml(ins.desc) + '</li>';
-   });
-   if (!actions.length) {
-     const gT = todayRows.filter(function(r) {
-       return r.section === 'GENEL';
-     });
-     const coll = (findRow(gT, ['31 GUN USTU']) || {}).tutar || 0;
-     const aks31 = (findRow(gT, ['31-91', 'TOPLAM AKSAMA']) || {}).tutar || 0;
-     const rate = aks31 > 0 ? (coll / aks31 * 100) : 0;
-     actions.push('<li><b>Genel durum sakin.</b> 31-91 tahsilat oran\u0131 %' + rate.toFixed(1) + '. Segment karnesini ve yap\u0131land\u0131rma oran\u0131n\u0131 izlemeye devam edin.</li>');
-   }
-   list.innerHTML = actions.join('');
-   panel.style.display = 'block';
- }
-
- window.onload = function() {
-   attachInputFeedbackHandlers();
-   initTheme();
-   renderHistoryListUI();
-   initTextareaDragzone('todayInput', true);
-   initTextareaDragzone('yestInput', false);
- };</script> 
+/* ---------- Panoyu Oluştur ---------- */
+function buildDashboard() {
+  var todayEl = document.getElementById('todayInput');
+  var todayText = todayEl.value;
+  if (!todayText.trim()) {
+    setInputFeedback('<b>Bugünün verisi yok.</b> Excel verisini üstteki kutuya yapıştırın ya da demo için <b>Örnek Test Verisi Yükle</b> butonuna basın; sonra tekrar <b>Panoyu Oluştur</b>\'a basın.', 'warning');
+    todayEl.focus();
+    return;
+  }
+  var pT = parseBlock(todayText);
+  if (pT.rows.length === 0) {
+    setInputFeedback('<b>Bugünün verisi tanınamadı.</b> Excel\'den ilgili alanı kopyalayıp bu kutuya yapıştırın. İlk satırda tarih, altında AKSAMA VAZİYETİ ve TUTAR/ADET satırları olmalı.', 'error');
+    todayEl.focus();
+    return;
+  }
+  clearInputFeedback();
+  todayRows = pT.rows;
+  todayDate = pT.date;
+  if (todayDate) {
+    saveToHistory(todayDate, todayRows);
+  } // Dünün verisini belirleme
+  var yestText = document.getElementById('yestInput').value;
+  var pY = {
+    rows: [],
+    date: null
+  };
+  if (yestText.trim()) {
+    pY = parseBlock(yestText);
+    if (pY.rows.length > 0 && pY.date) {
+      saveToHistory(pY.date, pY.rows);
+    }
+  } else if (todayDate) {
+    // Hafızadan bugünden önceki en güncel tarihi otomatik bul
+    var history = getHistory();
+    var todayTime = parseDate(todayDate).getTime();
+    var bestPrev = null;
+    var bestPrevTime = 0;
+    history.forEach(function (h) {
+      var hTime = parseDate(h.date).getTime();
+      if (hTime < todayTime && hTime > bestPrevTime) {
+        bestPrev = h;
+        bestPrevTime = hTime;
+      }
+    });
+    // Eğer geçmişte bugünden eski tarih yoksa, listedeki bugün dışındaki en son tarihi al
+    if (!bestPrev && history.length > 0) {
+      var nonToday = history.filter(function (h) {
+        return h.date !== todayDate;
+      });
+      if (nonToday.length > 0) {
+        bestPrev = nonToday[nonToday.length - 1];
+      }
+    }
+    if (bestPrev) {
+      pY = {
+        rows: bestPrev.rows,
+        date: bestPrev.date
+      };
+    }
+  }
+  yestRows = pY.rows;
+  yestDate = pY.date;
+  // === Son 7 gün geçmiş veriyi trend için hazırla ===
+  window.recentHistory = getRecentHistory(7);
+  document.getElementById('input-panel').style.display = 'none';
+  document.getElementById('dash').style.display = 'block';
+  var compareLabel = yestDate ? "Son i\u015F g\xFCn\xFC <b>".concat(yestDate, "</b>") : 'Kıyas verisi yok';
+  document.getElementById('datepill').innerHTML = "Bug\xFCn <b>".concat(todayDate || '—', "</b><br>").concat(compareLabel);
+  renderKPIs();
+  renderActionSummary();
+  renderCollection();
+  renderDistribution();
+  renderRatio();
+  renderSubsegments();
+  ['GENEL', '31-91', '15-91'].forEach(renderSectionTable);
+  // Akıllı içgörüler ve Risk karnesini yükle
+  renderInsights();
+  renderSegmentRiskCards();
+  renderCharts();
+}
+/* ---------- KPI ---------- */
+function kpiCard(label, todayObj, yestObj) {
+  var recentHistory = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : [];
+  var badIfUp = arguments.length > 4 && arguments[4] !== undefined ? arguments[4] : true;
+  var curr = todayObj ? todayObj.tutar : null;
+  if (curr == null) return '';
+  var prev = yestObj ? yestObj.tutar : null;
+  var pill = '<span class="pill flat">yeni</span>',
+    chg = '',
+    yest = '',
+    accent = 'var(--line)';
+  if (prev == null) {
+    pill = '<span class="pill flat">dün yok</span>';
+    chg = '<span class="t-flat">Kıyas için dün verisi gerekli</span>';
+  } else {
+    var d = curr - prev,
+      pct = prev !== 0 ? d / prev * 100 : null;
+    if (Math.abs(d) < 0.5) {
+      pill = '<span class="pill flat">≈ sabit</span>';
+      chg = '<span class="t-flat">Değişim yok</span>';
+      accent = 'var(--ink3)';
+    } else {
+      var up = d > 0,
+        good = badIfUp ? !up : up;
+      accent = good ? 'var(--green)' : 'var(--red)';
+      pill = "<span class=\"pill ".concat(good ? 'good' : 'bad', "\">").concat(pct != null ? (up ? '+' : '') + fmtPct(pct) : '', "</span>");
+      var cls = good ? 't-good' : 't-bad',
+        arrow = up ? '▲' : '▼',
+        word = up ? 'arttı' : 'azaldı',
+        verdict = good ? 'iyi' : 'dikkat';
+      chg = "<span class=\"".concat(cls, "\"><span class=\"amt\">").concat(arrow, " ").concat(fmtTL(Math.abs(d)), "</span> ").concat(word, " \xB7 ").concat(verdict, "</span>");
+    }
+    yest = "<div class=\"yest\">D\xFCn: ".concat(fmtTL(prev), "</div>");
+  } // === ÇOK GÜNLÜ TREND (3 ve 7 gün) ===
+  // recentHistory: bugünden önceki günler, en yeni en başta. Bu metriğin geçmiş değerlerini topla.
+  var trendHtml = '';
+  if (todayObj && recentHistory && recentHistory.length >= 1) {
+    var histVals = recentHistory.map(function (h) {
+      var row = h.rows.find(function (r) {
+        return r.normLabel === todayObj.normLabel;
+      });
+      return row ? row.tutar : null;
+    });
+    // index 0 = en yeni geçmiş gün
+    var trendLine = function trendLine(windowDays, etiket) {
+      // bugün + son N geçmiş günün en eskisini kıyasla
+      var slice = histVals.slice(0, windowDays).filter(function (v) {
+        return v != null;
+      });
+      if (slice.length < 1) return '';
+      var oldest = slice[slice.length - 1];
+      // pencerenin en eski değeri
+      var diff = curr - oldest;
+      if (Math.abs(diff) <= 1000) {
+        return "<div class=\"tr flat\"><span class=\"win\">".concat(etiket, ":</span> <span class=\"val\">\u2248 sabit</span></div>");
+      }
+      var up = diff > 0;
+      var good = badIfUp ? !up : up;
+      var cls = good ? 't-good' : 't-bad';
+      var arrow = up ? '▲' : '▼';
+      return "<div class=\"tr ".concat(cls, "\"><span class=\"win\">").concat(etiket, ":</span> <span class=\"val\">").concat(arrow, " ").concat(fmtTL(Math.abs(diff)), "</span></div>");
+    };
+    var t3 = trendLine(3, 'Son 3 gün');
+    var t7 = recentHistory.length >= 4 ? trendLine(7, 'Son 7 gün') : '';
+    if (t3 || t7) trendHtml = "<div class=\"trend\">".concat(t3).concat(t7, "</div>");
+  }
+  return "<div class=\"kpi\" style=\"--kpi-accent:".concat(accent, "\"><div class=\"top\"><div class=\"label\">").concat(label, "</div>").concat(pill, "</div><div class=\"bigval\">").concat(fmtTL(curr), "</div><div class=\"chgline\">").concat(chg, "</div>").concat(yest).concat(trendHtml, "</div>");
+}
+function renderKPIs() {
+  var gT = todayRows.filter(function (r) {
+      return r.section === 'GENEL';
+    }),
+    gY = yestRows.filter(function (r) {
+      return r.section === 'GENEL';
+    });
+  var rh = window.recentHistory || [];
+  document.getElementById('kpiGrid').innerHTML = [kpiCard('Toplam Aksama · 31-91 Gün', findRow(gT, ['31-91', 'TOPLAM AKSAMA']), findRow(gY, ['31-91', 'TOPLAM AKSAMA']), rh, true), kpiCard('Toplam Aksama · 15-91 Gün', findRow(gT, ['15-91', 'TOPLAM AKSAMA']), findRow(gY, ['15-91', 'TOPLAM AKSAMA']), rh, true), kpiCard('Toplam Takip Borcu', findRow(gT, ['TAKIP BORCU']), findRow(gY, ['TAKIP BORCU']), rh, true)].join('') || '<div class="empty-note">Gösterge bulunamadı.</div>';
+}
+/* ---------- Akıllı Analiz ve Erken Uyarı Sinyalleri (EWS) ---------- */
+function generateInsights() {
+  var _gT$find, _gT$find2;
+  var insights = [];
+  var gT = todayRows.filter(function (r) {
+      return r.section === 'GENEL';
+    }),
+    gY = yestRows.filter(function (r) {
+      return r.section === 'GENEL';
+    });
+  var t31 = (findRow(gT, ['31-91', 'TOPLAM AKSAMA']) || {}).tutar || 0;
+  var y31 = (findRow(gY, ['31-91', 'TOPLAM AKSAMA']) || {}).tutar || 0;
+  // 1. Genel trend
+  if (y31 > 0) {
+    var diff = t31 - y31;
+    var pct = diff / y31 * 100;
+    if (diff > 50000) {
+      insights.push({
+        type: 'bad',
+        title: 'Toplam Aksamada Artış Sinyali',
+        desc: "31-91 G\xFCn toplam aksama d\xFCnden bug\xFCne <b>".concat(fmtTL(diff), " (%").concat(pct.toFixed(1), ")</b> artt\u0131. Takip riskinde b\xFCy\xFCme i\u015Fareti.")
+      });
+    } else if (diff < -50000) {
+      insights.push({
+        type: 'good',
+        title: 'Aksama Portföyü Erime Trendinde',
+        desc: "31-91 G\xFCn toplam aksama d\xFCnden bug\xFCne <b>".concat(fmtTL(Math.abs(diff)), " (%").concat(Math.abs(pct).toFixed(1), ")</b> azalarak olumlu y\xF6nde ilerleme kaydetti.")
+      });
+    }
+  } // 2. Tahsilat Hızı
+  var ustu = ((_gT$find = gT.find(function (x) {
+    return ['31 GUN USTU'].every(function (k) {
+      return x.normLabel.includes(k);
+    });
+  })) === null || _gT$find === void 0 ? void 0 : _gT$find.tutar) || 0;
+  var alti = ((_gT$find2 = gT.find(function (x) {
+    return ['31 GUN ALTI'].every(function (k) {
+      return x.normLabel.includes(k);
+    });
+  })) === null || _gT$find2 === void 0 ? void 0 : _gT$find2.tutar) || 0;
+  var totTut = ustu + alti;
+  var aksama31 = findRow(gT, ['31-91', 'TOPLAM AKSAMA']);
+  var collRate = aksama31 && aksama31.tutar > 0 ? totTut / aksama31.tutar * 100 : 0;
+  if (collRate >= 4) {
+    insights.push({
+      type: 'good',
+      title: 'Güçlü Tahsilat Performansı',
+      desc: "Bug\xFCn gecikmeli portf\xF6y\xFCn <b>%".concat(collRate.toFixed(1), "'i (").concat(fmtTL(totTut), ")</b> ba\u015Far\u0131yla tahsil edildi.")
+    });
+  } else if (collRate > 0 && collRate < 1.5) {
+    insights.push({
+      type: 'warning',
+      title: 'Yavaş Tahsilat Akışı',
+      desc: "Bug\xFCnk\xFC tahsilat oran\u0131 <b>%".concat(collRate.toFixed(1), "</b> ile zay\u0131f kald\u0131. Gecikmeli kitledeki nakit d\xF6n\xFC\u015F\xFC yava\u015F gidiyor.")
+    });
+  } // 3. Yapılandırma Yükü
+  var t = splitYapNorm(todayRows.filter(function (r) {
+    return r.section === '31-91';
+  }));
+  if (t.total > 0) {
+    var yapRatio = t.yap / t.total * 100;
+    if (yapRatio > 65) {
+      insights.push({
+        type: 'bad',
+        title: 'Kritik Yapılandırma Seviyesi',
+        desc: "Gecikmeli portf\xF6y\xFCn <b>%".concat(yapRatio.toFixed(1), "'i</b> \xF6nceden yap\u0131land\u0131r\u0131l\u0131p tekrar aksayan kredilerden olu\u015Fuyor! Yap\u0131land\u0131rma kalitesi zay\u0131f.")
+      });
+    } else if (yapRatio > 45) {
+      insights.push({
+        type: 'warning',
+        title: 'Yapılandırma Kredileri İzleme Altında',
+        desc: "Portf\xF6y\xFCn <b>%".concat(yapRatio.toFixed(1), "'i</b> yap\u0131land\u0131rma \xFCr\xFCn\xFCd\xFCr. Tekrar aksama ve tahsil edilememe olas\u0131l\u0131klar\u0131 y\xFCksek.")
+      });
+    }
+  } // 4. Segment Bazlı Hacim/Tahsilat Uyumsuzluğu (Kritik Uyarı)
+  var segments = ['BIREYSEL', 'TARIM', 'TICARI'];
+  var segmentNames = {
+    'BIREYSEL': 'Bireysel',
+    'TARIM': 'Tarım',
+    'TICARI': 'Ticari/KOBİ'
+  };
+  segments.forEach(function (segKey) {
+    var tSeg = segmentSplit(todayRows, segKey);
+    var ySeg = yestRows.length ? segmentSplit(yestRows, segKey) : null;
+    var r31 = todayRows.filter(function (r) {
+      return r.section === '31-91';
+    });
+    var segPay = getSegmentPayment(todayRows, segKey).tutar;
+    if (tSeg.total > 0 && ySeg && ySeg.total > 0) {
+      var segDiff = tSeg.total - ySeg.total;
+      if (segDiff > 10000 && segPay === 0) {
+        insights.push({
+          type: 'bad',
+          title: "".concat(segmentNames[segKey], " Portf\xF6y\xFCnde Aksama Art\u0131\u015F\u0131 & S\u0131f\u0131r Tahsilat"),
+          desc: "<b>".concat(segmentNames[segKey], "</b> segmenti aksamas\u0131 d\xFCnden bug\xFCne <b>").concat(fmtTL(segDiff), "</b> artmas\u0131na ra\u011Fmen bug\xFCn bu gruptan <b>hi\xE7 tahsilat yap\u0131lamad\u0131!</b>")
+        });
+      }
+    }
+  });
+  return insights;
+}
+function renderInsights() {
+  var panel = document.getElementById('insightsPanel');
+  var container = document.getElementById('insightsList');
+  if (!panel || !container) return;
+  var list = generateInsights();
+  if (list.length === 0) {
+    panel.style.display = 'none';
+    return;
+  }
+  panel.style.display = 'block';
+  var html = '';
+  list.forEach(function (ins) {
+    var icon = ' ';
+    if (ins.type === 'good') icon = ' ';else if (ins.type === 'bad') icon = ' ';else if (ins.type === 'warning') icon = ' ';
+    html += "       <div class=\"insight-item ".concat(ins.type, "\">         <div style=\"font-size: 1.15rem; flex-shrink: 0;\">").concat(icon, "</div>         <div>           <div style=\"font-weight: 700; margin-bottom: 2px;\">").concat(ins.title, "</div>           <div style=\"opacity: 0.95;\">").concat(ins.desc, "</div>         </div>       </div>     ");
+  });
+  container.innerHTML = html;
+}
+/* ---------- Segment Bazlı Risk Karnesi ---------- */
+function renderSegmentRiskCards() {
+  var grid = document.getElementById('segmentRiskGrid');
+  if (!grid) return;
+  var segs = [{
+    key: 'BIREYSEL',
+    name: 'Bireysel Portföy',
+    colorVar: '--blue-fill'
+  }, {
+    key: 'TARIM',
+    name: 'Tarım Portföyü',
+    colorVar: '--teal-fill'
+  }, {
+    key: 'TICARI',
+    name: 'Ticari / KOBİ',
+    colorVar: '--violet-fill'
+  }];
+  var html = '';
+  segs.forEach(function (seg) {
+    var t = segmentSplit(todayRows, seg.key);
+    var y = yestRows.length ? segmentSplit(yestRows, seg.key) : null;
+    var r31 = todayRows.filter(function (r) {
+      return r.section === '31-91';
+    });
+    var pay = getSegmentPayment(todayRows, seg.key).tutar;
+    if (t.total <= 0) return;
+    var yapRatio = t.yap / t.total * 100;
+    // Gelişim Hesabı
+    var growthHtml = '';
+    var isGrowing = false;
+    if (y && y.total > 0) {
+      var diff = t.total - y.total;
+      var pct = diff / y.total * 100;
+      if (Math.abs(diff) > 100) {
+        isGrowing = diff > 0;
+        var cls = isGrowing ? 't-bad' : 't-good';
+        var arrow = isGrowing ? '▲' : '▼';
+        growthHtml = "<span class=\"".concat(cls, "\" style=\"font-size:0.72rem; font-weight:700;\">").concat(arrow, " ").concat(fmtTL(Math.abs(diff)), " (").concat(isGrowing ? '+' : '').concat(pct.toFixed(1), "%)</span>");
+      } else {
+        growthHtml = '<span class="t-flat" style="font-size:0.72rem;">≈ Sabit</span>';
+      }
+    } else {
+      growthHtml = '<span class="t-flat" style="font-size:0.72rem;">Dün verisi yok</span>';
+    } // Risk Durumu Belirleme
+    var riskLevel = 'Düşük';
+    var riskClass = 'good';
+    if (isGrowing && pay === 0) {
+      riskLevel = 'Kritik';
+      riskClass = 'bad';
+    } else if (isGrowing || yapRatio > 50) {
+      riskLevel = 'Orta';
+      riskClass = 'warning';
+    }
+    html += "       <div class=\"panel\" style=\"margin-bottom:0; display:flex; flex-direction:column; justify-content:space-between; gap:12px; border-top: 3px solid var(".concat(seg.colorVar, ");\">         <div style=\"display:flex; justify-content:space-between; align-items:center;\">           <span style=\"font-size:0.8rem; font-weight:700; display:flex; align-items:center; gap:6px;\">             ").concat(seg.name, "           </span>           <span class=\"pill ").concat(riskClass, "\" style=\"font-size:0.65rem;\">").concat(riskLevel, " Risk</span>         </div>                  <div style=\"display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:5px;\">           <div>             <div style=\"font-size:0.65rem; color:var(--ink3); font-weight:600;\">AKSAMA TUTARI</div>             <div style=\"font-family:'Roboto Mono'; font-size:0.95rem; font-weight:700; color:var(--ink); margin-top:2px;\">").concat(fmtTL(t.total), "</div>             <div style=\"margin-top:2px;\">").concat(growthHtml, "</div>           </div>           <div>             <div style=\"font-size:0.65rem; color:var(--ink3); font-weight:600;\">TAHS\u0130LAT (BUG\xDCN)</div>             <div style=\"font-family:'Roboto Mono'; font-size:0.95rem; font-weight:700; color:var(--ink); margin-top:2px;\">").concat(fmtTL(pay), "</div>             <div style=\"font-size:0.68rem; color:var(--ink3); margin-top:2px;\">%").concat(t.total > 0 ? (pay / t.total * 100).toFixed(1) : '—', " oran</div>           </div>         </div>                  <div style=\"border-top:1px dashed var(--line); padding-top:10px; display:flex; justify-content:space-between; font-size:0.7rem; color:var(--ink2);\">           <span>Yap\u0131land\u0131rma Oran\u0131:</span>           <span style=\"font-family:'Roboto Mono'; font-weight:700; color:var(--amber);\">").concat(yapRatio.toFixed(1), "%</span>         </div>       </div>     ");
+  });
+  grid.innerHTML = html;
+}
+/* ---------- Collection (tahsilat) ---------- */
+function renderCollection() {
+  var host = document.getElementById('collHost');
+  var gen = todayRows.filter(function (r) {
+    return r.section === 'GENEL';
+  });
+  var fg = function fg(inc) {
+    return gen.find(function (x) {
+      return inc.every(function (k) {
+        return x.normLabel.includes(k);
+      });
+    });
+  };
+  var ustu = fg(['31 GUN USTU']);
+  var alti = fg(['31 GUN ALTI']);
+  var r31 = todayRows.filter(function (r) {
+    return r.section === '31-91';
+  });
+  var fp = function fp(inc) {
+    return r31.find(function (x) {
+      return inc.every(function (k) {
+        return x.normLabel.includes(k);
+      });
+    });
+  };
+  var bireyselOd = getSegmentPayment(todayRows, 'BIREYSEL');
+  var tarimOd = getSegmentPayment(todayRows, 'TARIM');
+  var kobiOd = getSegmentPayment(todayRows, 'TICARI');
+  var hasAny = ustu || alti || bireyselOd.tutar || tarimOd.tutar || kobiOd.tutar;
+  if (!hasAny) {
+    host.innerHTML = '<div class="empty-note">Bu veride ödeme/tahsilat satırı bulunamadı.</div>';
+    return;
+  }
+  var totTut = ((ustu === null || ustu === void 0 ? void 0 : ustu.tutar) || 0) + ((alti === null || alti === void 0 ? void 0 : alti.tutar) || 0);
+  var totKisi = ((ustu === null || ustu === void 0 ? void 0 : ustu.adet) || 0) + ((alti === null || alti === void 0 ? void 0 : alti.adet) || 0);
+  var aksama31 = findRow(gen, ['31-91', 'TOPLAM AKSAMA']);
+  var rate = aksama31 && aksama31.tutar > 0 ? totTut / aksama31.tutar * 100 : null;
+  var stat = "     <div class=\"coll-top\">       <div class=\"coll-stat\">         <div class=\"k\">Bug\xFCn Toplam Tahsilat</div>         <div class=\"v\">".concat(fmtTL(totTut), "</div>         <div class=\"x\">").concat(fmtNum(totKisi), " m\xFC\u015Fteri \xF6deme yapt\u0131</div>       </div>       <div class=\"coll-stat alt\">         <div class=\"k\">Tahsilat Oran\u0131</div>         <div class=\"v\">").concat(rate != null ? fmtPct(rate) : '—', "</div>         <div class=\"x\">31-91 aksaman\u0131n bug\xFCn tahsil edilen k\u0131sm\u0131</div>       </div>     </div>");
+  var split = "     <div class=\"coll-split\">       <div class=\"half\">         <div class=\"lab\">31 G\xFCn \xDCst\xFC \xD6deyenler</div>         <div class=\"num\">".concat(fmtTL(ustu ? ustu.tutar : 0), "</div>         <div class=\"ppl\">").concat(fmtNum(ustu ? ustu.adet : 0), " ki\u015Fi \xB7 en riskli gruptan tahsilat</div>       </div>       <div class=\"half\">         <div class=\"lab\">31 G\xFCn Alt\u0131 \xD6deyenler</div>         <div class=\"num\">").concat(fmtTL(alti ? alti.tutar : 0), "</div>         <div class=\"ppl\">").concat(fmtNum(alti ? alti.adet : 0), " ki\u015Fi \xB7 erken \xF6deme</div>       </div>     </div>");
+  var segCell = function segCell(nm, dotVar, o) {
+    var paid = o && o.tutar > 0;
+    return "<div class=\"item".concat(paid ? ' paid' : ' zero', "\"><div class=\"nm\"><span class=\"dot\" style=\"background:var(").concat(dotVar, ")\"></span>").concat(nm, "</div><div class=\"amt\">").concat(fmtTL(o ? o.tutar : 0), "</div><div class=\"ppl\">").concat(fmtNum(o ? o.adet : 0), " ki\u015Fi \xF6dedi</div></div>");
+  };
+  var seg = "     <div class=\"coll-seg-title\">Segment baz\u0131nda bug\xFCnk\xFC \xF6deme (31-91 g\xFCn)</div>     <div class=\"coll-seg\">       ".concat(segCell('Bireysel', '--blue-fill', bireyselOd), "       ").concat(segCell('Tarım', '--teal-fill', tarimOd), "       ").concat(segCell('Ticari/KOBİ', '--violet-fill', kobiOd), "     </div>");
+  var chartContainerHtml = totTut > 0 ? "     <div class=\"no-print\" style=\"display: flex; flex-direction: column; align-items: center; margin-top: 16px; border-top: 1px dashed var(--line); padding-top: 16px;\">       <div style=\"font-size:0.76rem; font-weight:700; margin-bottom:10px; color:var(--ink2);\">Tahsilat K\u0131r\u0131l\u0131m Grafi\u011Fi</div>       <div style=\"position: relative; height: 160px; width: 100%; max-width: 320px;\">         <canvas id=\"chartCollection\"></canvas>       </div>     </div>" : '';
+  var note = '';
+  if (rate != null) {
+    note = "<div class=\"note\"><b>Nas\u0131l okunur:</b> Bug\xFCn <b>".concat(fmtNum(totKisi), " m\xFC\u015Fteri ").concat(fmtTL(totTut), "</b> \xF6dedi. Tahsilat <b class=\"hl-blue\">d\xFCnle k\u0131yaslanmaz</b>: ne kadar y\xFCksekse o kadar iyidir, \xE7\xFCnk\xFC aksama portf\xF6y\xFCn eriyor demektir. 31 g\xFCn \xFCst\xFC \xF6deyenler en riskli gruptan tahsilat oldu\u011Fu i\xE7in \xF6zellikle de\u011Ferlidir.</div>");
+  }
+  host.innerHTML = stat + split + seg + chartContainerHtml + note;
+}
+/* ---------- Distribution ---------- */
+function segTotals(rows, section) {
+  var r = rows.filter(function (x) {
+    return x.section === section && !isPaymentRow(x);
+  });
+  var find = function find(inc) {
+    return r.find(function (x) {
+      return inc.every(function (k) {
+        return x.normLabel.includes(k);
+      });
+    });
+  };
+  var bir = find(['BIREYSEL', 'TOPLAM AKSAMA']);
+  var tar = find(['TARIM', 'TOPLAM AKSAMA']);
+  var tic = find(['KOBI', 'TOPLAM AKSAMA']) || find(['TICARI', 'TOPLAM AKSAMA']);
+  return {
+    Bireysel: bir ? {
+      tutar: bir.tutar,
+      adet: bir.adet
+    } : {
+      tutar: 0,
+      adet: 0
+    },
+    Tarım: tar ? {
+      tutar: tar.tutar,
+      adet: tar.adet
+    } : {
+      tutar: 0,
+      adet: 0
+    },
+    Ticari: tic ? {
+      tutar: tic.tutar,
+      adet: tic.adet
+    } : {
+      tutar: 0,
+      adet: 0
+    }
+  };
+}
+function distBlock(title, seg) {
+  var totAdet = seg.Bireysel.adet + seg.Tarım.adet + seg.Ticari.adet;
+  var totTut = seg.Bireysel.tutar + seg.Tarım.tutar + seg.Ticari.tutar;
+  if (totAdet <= 0 && totTut <= 0) return '';
+  var pa = function pa(x) {
+    return totAdet > 0 ? x / totAdet * 100 : 0;
+  };
+  var pBir = pa(seg.Bireysel.adet),
+    pTar = pa(seg.Tarım.adet),
+    pTic = pa(seg.Ticari.adet);
+  var seglbl = function seglbl(p) {
+    return p >= 14 ? fmtPct(p) : p >= 7 ? Math.round(p) + '%' : '';
+  };
+  var cell = function cell(nm, dotVar, o, p) {
+    return "<div class=\"item\"><div class=\"nm\"><span class=\"dot\" style=\"background:var(".concat(dotVar, ")\"></span>").concat(nm, "</div><div class=\"ppl\">").concat(fmtNum(o.adet), " <span>ki\u015Fi \xB7 ").concat(fmtPct(p), "</span></div><div class=\"amt\">").concat(fmtTL(o.tutar), "</div></div>");
+  };
+  return "<div class=\"seg-block\">     <div class=\"seg-block-head\"><div class=\"ttl\">".concat(title, "</div><div class=\"meta\">").concat(fmtNum(totAdet), " ki\u015Fi \xB7 ").concat(fmtTL(totTut), "</div></div>     <div class=\"distbar\">       <div class=\"seg d-bir\" style=\"width:").concat(pBir, "%\">").concat(seglbl(pBir), "</div>       <div class=\"seg d-tar\" style=\"width:").concat(pTar, "%\">").concat(seglbl(pTar), "</div>       <div class=\"seg d-tic\" style=\"width:").concat(pTic, "%\">").concat(seglbl(pTic), "</div>     </div>     <div class=\"seg-legend\">       ").concat(cell('Bireysel', '--blue-fill', seg.Bireysel, pBir), "       ").concat(cell('Tarım', '--teal-fill', seg.Tarım, pTar), "       ").concat(cell('Ticari/KOBİ', '--violet-fill', seg.Ticari, pTic), "     </div>   </div>");
+}
+function renderDistribution() {
+  var s31 = segTotals(todayRows, '31-91');
+  var s15 = segTotals(todayRows, '15-91');
+  var html = distBlock('31-91 Gün', s31) + distBlock('15-91 Gün', s15);
+  // Segment doughnut charts side by side
+  var chartsHtml = '';
+  if (s31.Bireysel.tutar > 0 || s15.Bireysel.tutar > 0) {
+    chartsHtml = "       <div class=\"no-print\" style=\"display: flex; flex-wrap: wrap; gap: 15px; margin-top: 18px; border-top: 1px dashed var(--line); padding-top: 18px; justify-content: space-around;\">         <div style=\"display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 140px;\">           <div style=\"font-size:0.72rem; font-weight:700; text-align:center; margin-bottom:8px; color:var(--ink2);\">31-91 G\xFCn Da\u011F\u0131l\u0131m\u0131 (Tutar)</div>           <div style=\"position: relative; height: 130px; width: 100%;\"><canvas id=\"chartSeg31\"></canvas></div>         </div>         <div style=\"display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 140px;\">           <div style=\"font-size:0.72rem; font-weight:700; text-align:center; margin-bottom:8px; color:var(--ink2);\">15-91 G\xFCn Da\u011F\u0131l\u0131m\u0131 (Tutar)</div>           <div style=\"position: relative; height: 130px; width: 100%;\"><canvas id=\"chartSeg15\"></canvas></div>         </div>       </div>";
+  }
+  var totA = s31.Bireysel.adet + s31.Tarım.adet + s31.Ticari.adet;
+  var note = '';
+  if (totA > 0) {
+    var pBir = s31.Bireysel.adet / totA * 100;
+    note = "<div class=\"note\"><b>Nas\u0131l okunur:</b> 31-91 g\xFCnde aksayan m\xFC\u015Fterilerin <b>%".concat(pBir.toLocaleString('tr-TR', {
+      maximumFractionDigits: 0
+    }), "'i bireysel</b>. \xC7ubu\u011Fun en b\xFCy\xFCk dilimi en \xE7ok m\xFC\u015Fterinin oldu\u011Fu kitleyi g\xF6sterir; ama az ki\u015Fi b\xFCy\xFCk tutar tutuyorsa \xF6ncelik tutardad\u0131r.</div>");
+  }
+  document.getElementById('distHost').innerHTML = (html || '<div class="empty-note">Segment verisi bulunamadı.</div>') + chartsHtml + note;
+}
+/* ---------- Restructuring ---------- */
+function splitYapNorm(rows) {
+  var detail = rows.filter(function (r) {
+    return !r.normLabel.includes('TOPLAM') && !isPaymentRow(r);
+  });
+  var yap = 0,
+    nrm = 0;
+  detail.forEach(function (r) {
+    if (r.normLabel.includes('YAPILANDIRMA')) yap += r.tutar;else nrm += r.tutar;
+  });
+  return {
+    yap: yap,
+    norm: nrm,
+    total: yap + nrm
+  };
+}
+function renderRatio() {
+  var t = splitYapNorm(todayRows.filter(function (r) {
+    return r.section === '31-91';
+  }));
+  var y = yestRows.length ? splitYapNorm(yestRows.filter(function (r) {
+    return r.section === '31-91';
+  })) : null;
+  var host = document.getElementById('ratioHost');
+  if (t.total <= 0) {
+    host.innerHTML = '<div class="empty-note">31-91 gün segment verisi bulunamadı.</div>';
+    return;
+  }
+  var pY = t.yap / t.total * 100,
+    pN = t.norm / t.total * 100;
+  var verdict = '<div class="verdict flat"><span class="ic">○</span><span>Dün verisi yok, kıyas yapılamıyor.</span></div>';
+  if (y && y.total > 0) {
+    var pyY = y.yap / y.total * 100,
+      d = pY - pyY;
+    if (Math.abs(d) < 0.05) verdict = "<div class=\"verdict flat\"><span class=\"ic\">\u2248</span><span>D\xFCnle ayn\u0131 oran (".concat(fmtPct(pyY), ").</span></div>");else {
+      var up = d > 0;
+      verdict = "<div class=\"verdict ".concat(up ? 'bad' : 'good', "\"><span class=\"ic\">").concat(up ? '▲' : '▼', "</span><span>D\xFCnden ").concat(fmtPct(Math.abs(d)), " puan ").concat(up ? 'arttı — yapılandırma yükü büyüyor' : 'azaldı — iyi yönde', ". D\xFCn ").concat(fmtPct(pyY), " idi.</span></div>");
+    }
+  }
+  var yapLbl = pY >= 14 ? fmtPct(pY) : '';
+  var normLbl = pN >= 14 ? fmtPct(pN) : '';
+  host.innerHTML = "     <div class=\"ratio-card\">       <div class=\"ratio-top\">         <div class=\"ratio-big\">".concat(fmtPct(pY), "<span class=\"lbl\">aksaman\u0131n tekrar-aksam\u0131\u015F yap\u0131land\u0131rma olan k\u0131sm\u0131</span></div>         <div class=\"ratio-nums\">           <div class=\"grp\"><div class=\"k\">Yap\u0131land\u0131rma</div><div class=\"v\">").concat(fmtTL(t.yap), "</div></div>           <div class=\"grp\"><div class=\"k\">Normal \xFCr\xFCn</div><div class=\"v\">").concat(fmtTL(t.norm), "</div></div>         </div>       </div>       <div class=\"stackbar\">         <div class=\"seg seg-yap\" style=\"width:").concat(pY, "%\">").concat(yapLbl, "</div>         <div class=\"seg seg-norm\" style=\"width:").concat(pN, "%\">").concat(normLbl, "</div>       </div>       <div class=\"legend\">         <span><span class=\"dot\" style=\"background:var(--amber-fill)\"></span>Yap\u0131land\u0131rma (tekrar aksam\u0131\u015F)</span>         <span><span class=\"dot\" style=\"background:var(--blue-fill)\"></span>Normal \xFCr\xFCn</span>       </div>     </div>     ").concat(verdict);
+}
+function segmentSplit(rows, key) {
+  var detail = rows.filter(function (r) {
+    return r.section === '31-91' && !r.normLabel.includes('TOPLAM') && !isPaymentRow(r);
+  });
+  var yap = 0,
+    nrm = 0;
+  detail.forEach(function (r) {
+    var m = key === 'BIREYSEL' ? r.normLabel.includes('BIREYSEL') : key === 'TARIM' ? r.normLabel.includes('TARIM') : r.normLabel.includes('TICARI') || r.normLabel.includes('KOBI') || r.normLabel.includes('ISLETME');
+    if (!m) return;
+    if (r.normLabel.includes('YAPILANDIRMA')) yap += r.tutar;else nrm += r.tutar;
+  });
+  return {
+    yap: yap,
+    norm: nrm,
+    total: yap + nrm
+  };
+}
+function renderSubsegments() {
+  var segs = [['Bireysel', 'BIREYSEL'], ['Tarım', 'TARIM'], ['Ticari / KOBİ', 'TICARI']];
+  var rows = '',
+    any = false;
+  segs.forEach(function (_ref) {
+    var _ref2 = _slicedToArray(_ref, 2),
+      name = _ref2[0],
+      key = _ref2[1];
+    var t = segmentSplit(todayRows, key);
+    if (t.total <= 0) return;
+    any = true;
+    var y = yestRows.length ? segmentSplit(yestRows, key) : null;
+    var pY = t.yap / t.total * 100,
+      pN = t.norm / t.total * 100;
+    var chg = '';
+    if (y && y.total > 0) {
+      var d = pY - y.yap / y.total * 100;
+      if (Math.abs(d) < 0.05) chg = '<span class="chg t-flat"> · dünle aynı</span>';else chg = "<span class=\"chg ".concat(d > 0 ? 't-bad' : 't-good', "\"> \xB7 ").concat(d > 0 ? '▲' : '▼', " ").concat(fmtPct(Math.abs(d)), " puan</span>");
+    }
+    rows += "<div class=\"subseg-row\">       <div class=\"name\"><span>".concat(name, "</span><span class=\"pct\">").concat(fmtPct(pY), "</span></div>       <div class=\"subseg-track\"><div class=\"yap\" style=\"width:").concat(pY, "%\"></div><div class=\"norm\" style=\"width:").concat(pN, "%\"></div></div>       <div class=\"subseg-sub\">Yap\u0131land\u0131rma ").concat(fmtTL(t.yap), " \xB7 Normal ").concat(fmtTL(t.norm)).concat(chg, "</div>     </div>");
+  });
+  document.getElementById('subsegHost').innerHTML = any ? "<div class=\"subseg-title\">Segment baz\u0131nda yap\u0131land\u0131rma y\xFCk\xFC (31-91 g\xFCn)</div>".concat(rows) : '';
+}
+/* ---------- Charts.js Grafik Fonksiyonları ---------- */
+// PDF/yazdırmada mouse olmadığı için tooltip hiç görünmez ve grafikler "kuru" kalır.
+// Bu plugin her bar/dilim üzerine DAİMA görünen rakam yazar; ekranda da, PDF'te de çalışır.
+if (typeof Chart !== 'undefined' && !Chart.__permanentLabelsRegistered) {
+  Chart.register({
+    id: 'permanentValueLabels',
+    afterDatasetsDraw: function afterDatasetsDraw(chart) {
+      var ctx = chart.ctx;
+      var isPrint = window.matchMedia && window.matchMedia('print').matches;
+      chart.data.datasets.forEach(function (dataset, dsIndex) {
+        var meta = chart.getDatasetMeta(dsIndex);
+        if (meta.hidden) return;
+        meta.data.forEach(function (el, i) {
+          var raw = dataset.data[i];
+          if (raw == null || raw === 0) return;
+          var text = typeof fmtTLShort === 'function' ? fmtTLShort(raw) : fmtTL(raw);
+          ctx.save();
+          ctx.font = '700 11px Inter, sans-serif';
+          ctx.fillStyle = isPrint ? '#000' : chart.config.type === 'doughnut' ? '#fff' : window.__chartLabelColor || '#101826';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          if (chart.config.type === 'doughnut' || chart.config.type === 'pie') {
+            var pos = el.tooltipPosition ? el.tooltipPosition() : {
+              x: el.x,
+              y: el.y
+            };
+            ctx.fillStyle = '#fff';
+            ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+            ctx.lineWidth = 3;
+            ctx.strokeText(text, pos.x, pos.y);
+            ctx.fillText(text, pos.x, pos.y);
+          } else if (chart.config.options && chart.config.options.indexAxis === 'y') {
+            ctx.textAlign = 'left';
+            ctx.fillText(text, el.x + 8, el.y);
+          } else {
+            ctx.fillText(text, el.x, el.y - 8);
+          }
+          ctx.restore();
+        });
+      });
+    }
+  });
+  Chart.__permanentLabelsRegistered = true;
+}
+function fmtTLShort(n) {
+  if (n == null || isNaN(n)) return '—';
+  var abs = Math.abs(n);
+  if (abs >= 1000000) return (n / 1000000).toLocaleString('tr-TR', {
+    maximumFractionDigits: 1
+  }) + ' Mn ₺';
+  if (abs >= 1000) return (n / 1000).toLocaleString('tr-TR', {
+    maximumFractionDigits: 0
+  }) + ' Bin ₺';
+  return n.toLocaleString('tr-TR') + ' ₺';
+}
+function destroyCharts() {
+  if (chartKPI) {
+    chartKPI.destroy();
+    chartKPI = null;
+  }
+  if (chartSeg31) {
+    chartSeg31.destroy();
+    chartSeg31 = null;
+  }
+  if (chartSeg15) {
+    chartSeg15.destroy();
+    chartSeg15 = null;
+  }
+  if (chartCollection) {
+    chartCollection.destroy();
+    chartCollection = null;
+  }
+  if (chartRatioTrend) {
+    chartRatioTrend.destroy();
+    chartRatioTrend = null;
+  }
+}
+function renderCharts() {
+  var _gT$find3, _gT$find4;
+  destroyCharts();
+  var chartNotice = document.getElementById('chartUnavailableNote');
+  if (typeof Chart === 'undefined') {
+    if (chartNotice) chartNotice.style.display = 'block';
+    ['chartKPIComparisonContainer', 'chartRatioTrendContainer'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+    return;
+  }
+  if (chartNotice) chartNotice.style.display = 'none';
+  var colors = getThemeColors();
+  var isDark = document.body.classList.contains('dark-mode');
+  // 1. KPI Comparison Chart
+  var gT = todayRows.filter(function (r) {
+      return r.section === 'GENEL';
+    }),
+    gY = yestRows.filter(function (r) {
+      return r.section === 'GENEL';
+    });
+  var t31 = (findRow(gT, ['31-91', 'TOPLAM AKSAMA']) || {}).tutar || 0;
+  var y31 = (findRow(gY, ['31-91', 'TOPLAM AKSAMA']) || {}).tutar || 0;
+  var t15 = (findRow(gT, ['15-91', 'TOPLAM AKSAMA']) || {}).tutar || 0;
+  var y15 = (findRow(gY, ['15-91', 'TOPLAM AKSAMA']) || {}).tutar || 0;
+  var tTakip = (findRow(gT, ['TAKIP BORCU']) || {}).tutar || 0;
+  var yTakip = (findRow(gY, ['TAKIP BORCU']) || {}).tutar || 0;
+  if (t31 > 0 || t15 > 0 || tTakip > 0) {
+    document.getElementById('chartKPIComparisonContainer').style.display = 'block';
+    var ctx = document.getElementById('chartKPIComparison').getContext('2d');
+    chartKPI = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: ['31-91 G. Aksama', '15-91 G. Aksama', 'Takip Borcu'],
+        datasets: [{
+          label: 'Bugün',
+          data: [t31, t15, tTakip],
+          backgroundColor: colors.accent,
+          borderRadius: 6
+        }].concat(_toConsumableArray(yestRows.length ? [{
+          label: 'Son iş günü',
+          data: [y31, y15, yTakip],
+          backgroundColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(16,24,38,0.15)',
+          borderRadius: 6
+        }] : []))
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            labels: {
+              color: colors.textColor,
+              font: {
+                family: 'Inter',
+                weight: 'bold'
+              }
+            }
+          },
+          tooltip: {
+            callbacks: {
+              label: function label(context) {
+                return context.dataset.label + ': ' + fmtTL(context.raw);
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: {
+              display: false
+            },
+            ticks: {
+              color: colors.textColor,
+              font: {
+                family: 'Inter'
+              }
+            }
+          },
+          y: {
+            grid: {
+              color: colors.gridColor
+            },
+            ticks: {
+              color: colors.textColor,
+              font: {
+                family: 'Roboto Mono',
+                size: 10
+              },
+              callback: function callback(value) {
+                return fmtTL(value);
+              }
+            }
+          }
+        }
+      }
+    });
+  } else {
+    document.getElementById('chartKPIComparisonContainer').style.display = 'none';
+  } // 2. Collection Chart
+  var ustu = ((_gT$find3 = gT.find(function (x) {
+    return ['31 GUN USTU'].every(function (k) {
+      return x.normLabel.includes(k);
+    });
+  })) === null || _gT$find3 === void 0 ? void 0 : _gT$find3.tutar) || 0;
+  var alti = ((_gT$find4 = gT.find(function (x) {
+    return ['31 GUN ALTI'].every(function (k) {
+      return x.normLabel.includes(k);
+    });
+  })) === null || _gT$find4 === void 0 ? void 0 : _gT$find4.tutar) || 0;
+  if ((ustu > 0 || alti > 0) && document.getElementById('chartCollection')) {
+    var _ctx = document.getElementById('chartCollection').getContext('2d');
+    chartCollection = new Chart(_ctx, {
+      type: 'doughnut',
+      data: {
+        labels: ['31 Gün Üstü Ödeyenler', '31 Gün Altı Ödeyenler'],
+        datasets: [{
+          data: [ustu, alti],
+          backgroundColor: [colors.amber, colors.green],
+          borderWidth: 2,
+          borderColor: isDark ? '#161D2B' : '#FFFFFF'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: true,
+            position: 'bottom',
+            labels: {
+              color: colors.textColor,
+              font: {
+                family: 'Inter',
+                size: 11
+              }
+            }
+          },
+          tooltip: {
+            callbacks: {
+              label: function label(c) {
+                return c.label + ': ' + fmtTL(c.raw);
+              }
+            }
+          }
+        },
+        cutout: '65%'
+      }
+    });
+  } // 3. Segment Doughnut Charts
+  var s31 = segTotals(todayRows, '31-91');
+  var s15 = segTotals(todayRows, '15-91');
+  if ((s31.Bireysel.tutar > 0 || s31.Tarım.tutar > 0 || s31.Ticari.tutar > 0) && document.getElementById('chartSeg31')) {
+    var _ctx2 = document.getElementById('chartSeg31').getContext('2d');
+    chartSeg31 = new Chart(_ctx2, {
+      type: 'doughnut',
+      data: {
+        labels: ['Bireysel', 'Tarım', 'Ticari/KOBİ'],
+        datasets: [{
+          data: [s31.Bireysel.tutar, s31.Tarım.tutar, s31.Ticari.tutar],
+          backgroundColor: [colors.blue, colors.teal, colors.violet],
+          borderWidth: 2,
+          borderColor: isDark ? '#161D2B' : '#FFFFFF'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            callbacks: {
+              label: function label(c) {
+                return c.label + ': ' + fmtTL(c.raw);
+              }
+            }
+          }
+        },
+        cutout: '65%'
+      }
+    });
+  }
+  if ((s15.Bireysel.tutar > 0 || s15.Tarım.tutar > 0 || s15.Ticari.tutar > 0) && document.getElementById('chartSeg15')) {
+    var _ctx3 = document.getElementById('chartSeg15').getContext('2d');
+    chartSeg15 = new Chart(_ctx3, {
+      type: 'doughnut',
+      data: {
+        labels: ['Bireysel', 'Tarım', 'Ticari/KOBİ'],
+        datasets: [{
+          data: [s15.Bireysel.tutar, s15.Tarım.tutar, s15.Ticari.tutar],
+          backgroundColor: [colors.blue, colors.teal, colors.violet],
+          borderWidth: 2,
+          borderColor: isDark ? '#161D2B' : '#FFFFFF'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            callbacks: {
+              label: function label(c) {
+                return c.label + ': ' + fmtTL(c.raw);
+              }
+            }
+          }
+        },
+        cutout: '65%'
+      }
+    });
+  } // 4. Restructuring Trend Line Chart
+  var history = getHistory();
+  var points = [];
+  history.forEach(function (h) {
+    var r31 = h.rows.filter(function (r) {
+      return r.section === '31-91';
+    });
+    var t = splitYapNorm(r31);
+    if (t.total > 0) {
+      points.push({
+        date: h.date,
+        ratio: t.yap / t.total * 100
+      });
+    }
+  });
+  if (points.length >= 2 && document.getElementById('chartRatioTrend')) {
+    document.getElementById('chartRatioTrendContainer').style.display = 'block';
+    var _ctx4 = document.getElementById('chartRatioTrend').getContext('2d');
+    chartRatioTrend = new Chart(_ctx4, {
+      type: 'line',
+      data: {
+        labels: points.map(function (p) {
+          return p.date;
+        }),
+        datasets: [{
+          label: 'Yapılandırma Oranı %',
+          data: points.map(function (p) {
+            return p.ratio;
+          }),
+          borderColor: colors.amber,
+          backgroundColor: isDark ? 'rgba(252, 196, 25, 0.08)' : 'rgba(220, 138, 40, 0.08)',
+          fill: true,
+          tension: 0,
+          spanGaps: false,
+          borderWidth: 3,
+          pointBackgroundColor: colors.amber,
+          pointHoverRadius: 7
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            callbacks: {
+              label: function label(c) {
+                return fmtPct(c.raw);
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: {
+              display: false
+            },
+            ticks: {
+              color: colors.textColor,
+              font: {
+                family: 'Inter',
+                size: 10
+              }
+            }
+          },
+          y: {
+            grid: {
+              color: colors.gridColor
+            },
+            ticks: {
+              color: colors.textColor,
+              font: {
+                family: 'Roboto Mono',
+                size: 10
+              },
+              callback: function callback(value) {
+                return value.toFixed(1) + '%';
+              }
+            }
+          }
+        }
+      }
+    });
+  } else {
+    if (document.getElementById('chartRatioTrendContainer')) {
+      document.getElementById('chartRatioTrendContainer').style.display = 'none';
+    }
+  }
+}
+/* ---------- Tablolar ---------- */
+var sectionTitles = {
+  'GENEL': 'Genel Göstergeler',
+  '31-91': '31-91 Gün Detayı',
+  '15-91': '15-91 Gün Detayı'
+};
+document.getElementById('tabs').addEventListener('click', function (e) {
+  var tab = e.target.closest('.tab');
+  if (!tab) return;
+  document.querySelectorAll('.tab').forEach(function (t) {
+    return t.classList.remove('active');
+  });
+  tab.classList.add('active');
+  document.querySelectorAll('.tab-content').forEach(function (c) {
+    return c.classList.remove('active');
+  });
+  document.getElementById('tableHost-' + tab.dataset.section).classList.add('active');
+});
+function renderSectionTable(section) {
+  var host = document.getElementById('tableHost-' + section);
+  var tRows = todayRows.filter(function (r) {
+    return r.section === section;
+  });
+  var yMap = {};
+  yestRows.filter(function (r) {
+    return r.section === section;
+  }).forEach(function (r) {
+    return yMap[r.normLabel] = r;
+  });
+  if (tRows.length === 0) {
+    host.innerHTML = "<div class=\"print-only-title\">".concat(sectionTitles[section], "</div><div class=\"empty-note\">Veri yok.</div>");
+    return;
+  }
+  var html = "<div class=\"print-only-title\">".concat(sectionTitles[section], "</div><table><thead><tr><th>Kalem</th><th>Bug\xFCn</th><th>D\xFCn</th><th>Fark</th><th>Adet</th></tr></thead><tbody>");
+  tRows.forEach(function (r) {
+    var y = yMap[r.normLabel];
+    var dHtml = '<span class="delta-cell flat">—</span>';
+    if (y) {
+      var d = r.tutar - y.tutar;
+      var isPay = isPaymentRow(r);
+      // Aksama/borç satırlarında artış kötü (kırmızı); ödeme/tahsilat satırlarında AZALIŞ kötü (kırmızı)
+      var bad = isPay ? d < 0 : d > 0;
+      var cls = Math.abs(d) < 0.5 ? 'flat' : bad ? 'up' : 'down';
+      var sg = d > 0 ? '+' : '';
+      dHtml = "<span class=\"delta-cell ".concat(cls, "\">").concat(sg).concat(fmtTL(d), "</span>");
+    }
+    html += "<tr><td class=\"lbl\">".concat(r.label, "</td><td>").concat(fmtTL(r.tutar), "</td><td>").concat(y ? fmtTL(y.tutar) : '—', "</td><td>").concat(dHtml, "</td><td>").concat(fmtNum(r.adet), "</td></tr>");
+  });
+  html += '</tbody></table>';
+  host.innerHTML = html;
+}
+/* ---------- Dışa Aktarımlar ---------- */
+function exportExcel() {
+  if (typeof XLSX === 'undefined') {
+    alert('Excel kütüphanesi yüklenemedi.');
+    return;
+  }
+  var wb = XLSX.utils.book_new();
+  var gT = todayRows.filter(function (r) {
+      return r.section === 'GENEL';
+    }),
+    gY = yestRows.filter(function (r) {
+      return r.section === 'GENEL';
+    });
+  var get = function get(rows, k) {
+    var r = findRow(rows, k);
+    return r ? r.tutar : '';
+  };
+  var s31 = segTotals(todayRows, '31-91'),
+    s15 = segTotals(todayRows, '15-91');
+  var t = splitYapNorm(todayRows.filter(function (r) {
+    return r.section === '31-91';
+  }));
+  var y = yestRows.length ? splitYapNorm(yestRows.filter(function (r) {
+    return r.section === '31-91';
+  })) : null;
+  var summary = [['AKSAMA TAKİP PANOSU - ÖZET'], ['Bugün', todayDate || ''], ['Dün', yestDate || ''], [], ['DÜNE GÖRE', 'Bugün', 'Dün'], ['31-91 Gün Toplam Aksama', get(gT, ['31-91', 'TOPLAM AKSAMA']), get(gY, ['31-91', 'TOPLAM AKSAMA'])], ['15-91 Gün Toplam Aksama', get(gT, ['15-91', 'TOPLAM AKSAMA']), get(gY, ['15-91', 'TOPLAM AKSAMA'])], ['Toplam Takip Borcu', get(gT, ['TAKIP BORCU']), get(gY, ['TAKIP BORCU'])], [], ['SEGMENT DAĞILIMI', 'Kişi (Adet)', 'Tutar'], ['31-91 Bireysel', s31.Bireysel.adet, s31.Bireysel.tutar], ['31-91 Tarım', s31.Tarım.adet, s31.Tarım.tutar], ['31-91 Ticari/KOBİ', s31.Ticari.adet, s31.Ticari.tutar], ['15-91 Bireysel', s15.Bireysel.adet, s15.Bireysel.tutar], ['15-91 Tarım', s15.Tarım.adet, s15.Tarım.tutar], ['15-91 Ticari/KOBİ', s15.Ticari.adet, s15.Ticari.tutar], [], ['YAPILANDIRMA (31-91)', 'Bugün', 'Dün'], ['Yapılandırma (tekrar aksamış)', t.yap, y ? y.yap : ''], ['Normal Ürün', t.norm, y ? y.norm : ''], ['Yapılandırma Oranı %', t.total ? t.yap / t.total * 100 : '', y && y.total ? y.yap / y.total * 100 : ''], [], ['BUGÜNKÜ TAHSİLAT', 'Tutar', 'Kişi'], ['31 Gün Üstü Ödeyenler', (findRow(gT, ['31 GUN USTU']) || {}).tutar || 0, (findRow(gT, ['31 GUN USTU']) || {}).adet || 0], ['31 Gün Altı Ödeyenler', (findRow(gT, ['31 GUN ALTI']) || {}).tutar || 0, (findRow(gT, ['31 GUN ALTI']) || {}).adet || 0]];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summary), 'Özet');
+  ['GENEL', '31-91', '15-91'].forEach(function (sec) {
+    var tRows = todayRows.filter(function (r) {
+      return r.section === sec;
+    });
+    var yMap = {};
+    yestRows.filter(function (r) {
+      return r.section === sec;
+    }).forEach(function (r) {
+      return yMap[r.normLabel] = r;
+    });
+    var aoa = [['Kalem', 'Bugün Tutar', 'Dün Tutar', 'Fark', 'Bugün Adet', 'Dün Adet']];
+    tRows.forEach(function (r) {
+      var yy = yMap[r.normLabel];
+      aoa.push([r.label, r.tutar, yy ? yy.tutar : '', yy ? r.tutar - yy.tutar : '', r.adet, yy ? yy.adet : '']);
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), sec === 'GENEL' ? 'Genel' : sec + ' Gun');
+  });
+  XLSX.writeFile(wb, 'aksama_panosu_' + (todayDate ? todayDate.replace(/\./g, '-') : 'rapor') + '.xlsx');
+}
+function exportPDF() {
+  // Fontlar (Roboto Mono / Inter) tam yüklenmeden yazdırırsak tarayıcı geçici
+  // yedek fontu kullanır -> I/L harfleri ve Türkçe karakterler (İ,ı,ş,ğ) bozuk çıkar.
+  // document.fonts.ready ile fontların kesin yüklendiğinden emin olup öyle yazdırıyoruz.
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(function () {
+      setTimeout(function () {
+        window.print();
+      }, 50);
+    });
+  } else {
+    window.print();
+  }
+}
+function loadDemoData() {
+  localStorage.removeItem('aksama_panosu_history');
+  {
+    var p = parseBlock("16.06.2026\nAKSAMA VAZİYETİ\n\nTUTAR\tADET\n31-91 GÜN TOPLAM AKSAMA\t19.231.450,22\t92\n15-91 GÜN TOPLAM AKSAMA\t33.800.000,00\t176\nTOPLAM TAKIP BORCU\t14.087.447,65\t136\n31 GÜN ÜSTÜ ÖDEME YAPANLAR\t1.574.508,04\t3\n31 GÜN ALTI ÖDEME YAPANLAR\t156.418,00\t7\nBUGÜN YAPILDIRILAN KREDİ\t0,00\t0\nPORTFÖY BAZLI VAZİYET 31-91 GÜN\t\t\nBireysel Ürünler\t2.933.926,55\t39\nBireysel Yapılandırma\t13.870.190,60\t33\nTarım\t654.612,66\t3\nTarım Yapılandırma\t264.692,34\t2\nTicari / İşletme\t916.568,30\t9\nTicari Yapılandırma\t206.290,73\t1\nTARIM TOPLAM AKSAMA\t925.000,00\t4\nBİREYSEL TOPLAM AKSAMA\t16.804.117,15\t72\nKOBİ/PERA. TOPLAM AKSAMA\t1.085.000,00\t9\nTOPLAM YAPILANDIRMA KREDİSİ\t14.341.173,67\t36\nBireysel Ürünler Ödenen\t223.416,04\t1\nBireysel Yapılandırma Ödenen\t1.347.017,00\t2\nTarım Ödenen\t120.000,00\t1\nTarım Yapılandırma Ödenen\t90.000,00\t1\nTicari / İşletme Ödenen\t143.500,50\t1\nTicari Yapılandırma Ödenen\t35.000,00\t1\nTARIM TOPLAM ÖDEME\t0,00\t0\nBİREYSEL TOPLAM ÖDEME\t1.570.433,04\t3\nKOBİ/PERA. TOPLAM ÖDEME\t0,00\t0\nPORTFÖY BAZLI VAZİYET 15-91 GÜN\t\t\nBireysel Ürünler\t9.547.196,24\t117\nBireysel Yapılandırma\t15.459.127,22\t39\nTarım\t6.654.612,66\t4\nTarım Yapılandırma\t264.692,34\t2\nTicari / İşletme\t1.844.410,62\t14\nTicari Yapılandırma\t262.115,94\t2\nTARIM TOPLAM AKSAMA\t925.000,00\t6\nBİREYSEL TOPLAM AKSAMA\t25.006.323,46\t156\nKOBİ/PERA. TOPLAM AKSAMA\t1.085.000,00\t16\nTOPLAM YAPILANDIRMA KREDİSİ\t15.985.935,50\t43\nBireysel Ürünler Ödenen\t379.834,04\t8\nBireysel Yapılandırma Ödenen\t1.347.017,00\t2\nTarım Ödenen\t120.000,00\t1\nTarım Yapılandırma Ödenen\t90.000,00\t1\nTicari / İşletme Ödenen\t143.500,50\t1\nTicari Yapılandırma Ödenen\t35.000,00\t1\nTARIM TOPLAM ÖDEME\t0,00\t0\nBİREYSEL TOPLAM ÖDEME\t1.726.851,04\t10\nKOBİ/PERA. TOPLAM ÖDEME\t0,00\t0");
+    if (p.date && p.rows.length) saveToHistory(p.date, p.rows);
+  }
+  {
+    var _p = parseBlock("17.06.2026\nAKSAMA VAZİYETİ\n\nTUTAR\tADET\n31-91 GÜN TOPLAM AKSAMA\t18.846.281,18\t88\n15-91 GÜN TOPLAM AKSAMA\t33.800.000,00\t176\nTOPLAM TAKIP BORCU\t14.087.447,65\t136\n31 GÜN ÜSTÜ ÖDEME YAPANLAR\t1.574.508,04\t3\n31 GÜN ALTI ÖDEME YAPANLAR\t156.418,00\t7\nBUGÜN YAPILDIRILAN KREDİ\t0,00\t0\nPORTFÖY BAZLI VAZİYET 31-91 GÜN\t\t\nBireysel Ürünler\t2.933.926,55\t39\nBireysel Yapılandırma\t13.870.190,60\t33\nTarım\t654.612,66\t3\nTarım Yapılandırma\t264.692,34\t2\nTicari / İşletme\t916.568,30\t9\nTicari Yapılandırma\t206.290,73\t1\nTARIM TOPLAM AKSAMA\t905.000,00\t4\nBİREYSEL TOPLAM AKSAMA\t16.804.117,15\t72\nKOBİ/PERA. TOPLAM AKSAMA\t1.085.000,00\t9\nTOPLAM YAPILANDIRMA KREDİSİ\t14.341.173,67\t36\nBireysel Ürünler Ödenen\t223.416,04\t1\nBireysel Yapılandırma Ödenen\t1.347.017,00\t2\nTarım Ödenen\t120.000,00\t1\nTarım Yapılandırma Ödenen\t90.000,00\t1\nTicari / İşletme Ödenen\t143.500,50\t1\nTicari Yapılandırma Ödenen\t35.000,00\t1\nTARIM TOPLAM ÖDEME\t125.000,00\t2\nBİREYSEL TOPLAM ÖDEME\t1.570.433,04\t3\nKOBİ/PERA. TOPLAM ÖDEME\t155.000,00\t2\nPORTFÖY BAZLI VAZİYET 15-91 GÜN\t\t\nBireysel Ürünler\t9.547.196,24\t117\nBireysel Yapılandırma\t15.459.127,22\t39\nTarım\t6.654.612,66\t4\nTarım Yapılandırma\t264.692,34\t2\nTicari / İşletme\t1.844.410,62\t14\nTicari Yapılandırma\t262.115,94\t2\nTARIM TOPLAM AKSAMA\t905.000,00\t6\nBİREYSEL TOPLAM AKSAMA\t25.006.323,46\t156\nKOBİ/PERA. TOPLAM AKSAMA\t1.085.000,00\t16\nTOPLAM YAPILANDIRMA KREDİSİ\t15.985.935,50\t43\nBireysel Ürünler Ödenen\t379.834,04\t8\nBireysel Yapılandırma Ödenen\t1.347.017,00\t2\nTarım Ödenen\t120.000,00\t1\nTarım Yapılandırma Ödenen\t90.000,00\t1\nTicari / İşletme Ödenen\t143.500,50\t1\nTicari Yapılandırma Ödenen\t35.000,00\t1\nTARIM TOPLAM ÖDEME\t125.000,00\t2\nBİREYSEL TOPLAM ÖDEME\t1.726.851,04\t10\nKOBİ/PERA. TOPLAM ÖDEME\t155.000,00\t2");
+    if (_p.date && _p.rows.length) saveToHistory(_p.date, _p.rows);
+  }
+  {
+    var _p2 = parseBlock("18.06.2026\nAKSAMA VAZİYETİ\n\nTUTAR\tADET\n31-91 GÜN TOPLAM AKSAMA\t18.700.000,00\t88\n15-91 GÜN TOPLAM AKSAMA\t33.800.000,00\t176\nTOPLAM TAKIP BORCU\t14.087.447,65\t136\n31 GÜN ÜSTÜ ÖDEME YAPANLAR\t1.574.508,04\t3\n31 GÜN ALTI ÖDEME YAPANLAR\t156.418,00\t7\nBUGÜN YAPILDIRILAN KREDİ\t0,00\t0\nPORTFÖY BAZLI VAZİYET 31-91 GÜN\t\t\nBireysel Ürünler\t2.933.926,55\t39\nBireysel Yapılandırma\t13.870.190,60\t33\nTarım\t654.612,66\t3\nTarım Yapılandırma\t264.692,34\t2\nTicari / İşletme\t916.568,30\t9\nTicari Yapılandırma\t206.290,73\t1\nTARIM TOPLAM AKSAMA\t905.000,00\t4\nBİREYSEL TOPLAM AKSAMA\t16.804.117,15\t72\nKOBİ/PERA. TOPLAM AKSAMA\t1.085.000,00\t9\nTOPLAM YAPILANDIRMA KREDİSİ\t14.341.173,67\t36\nBireysel Ürünler Ödenen\t223.416,04\t1\nBireysel Yapılandırma Ödenen\t1.347.017,00\t2\nTarım Ödenen\t120.000,00\t1\nTarım Yapılandırma Ödenen\t90.000,00\t1\nTicari / İşletme Ödenen\t143.500,50\t1\nTicari Yapılandırma Ödenen\t35.000,00\t1\nTARIM TOPLAM ÖDEME\t95.000,00\t1\nBİREYSEL TOPLAM ÖDEME\t1.570.433,04\t3\nKOBİ/PERA. TOPLAM ÖDEME\t80.000,00\t1\nPORTFÖY BAZLI VAZİYET 15-91 GÜN\t\t\nBireysel Ürünler\t9.547.196,24\t117\nBireysel Yapılandırma\t15.459.127,22\t39\nTarım\t6.654.612,66\t4\nTarım Yapılandırma\t264.692,34\t2\nTicari / İşletme\t1.844.410,62\t14\nTicari Yapılandırma\t262.115,94\t2\nTARIM TOPLAM AKSAMA\t905.000,00\t6\nBİREYSEL TOPLAM AKSAMA\t25.006.323,46\t156\nKOBİ/PERA. TOPLAM AKSAMA\t1.085.000,00\t16\nTOPLAM YAPILANDIRMA KREDİSİ\t15.985.935,50\t43\nBireysel Ürünler Ödenen\t379.834,04\t8\nBireysel Yapılandırma Ödenen\t1.347.017,00\t2\nTarım Ödenen\t120.000,00\t1\nTarım Yapılandırma Ödenen\t90.000,00\t1\nTicari / İşletme Ödenen\t143.500,50\t1\nTicari Yapılandırma Ödenen\t35.000,00\t1\nTARIM TOPLAM ÖDEME\t95.000,00\t1\nBİREYSEL TOPLAM ÖDEME\t1.726.851,04\t10\nKOBİ/PERA. TOPLAM ÖDEME\t80.000,00\t1");
+    if (_p2.date && _p2.rows.length) saveToHistory(_p2.date, _p2.rows);
+  }
+  {
+    var _p3 = parseBlock("23.06.2026\nAKSAMA VAZİYETİ\n\nTUTAR\tADET\n31-91 GÜN TOPLAM AKSAMA\t18.680.000,00\t88\n15-91 GÜN TOPLAM AKSAMA\t33.800.000,00\t176\nTOPLAM TAKIP BORCU\t14.087.447,65\t136\n31 GÜN ÜSTÜ ÖDEME YAPANLAR\t1.574.508,04\t3\n31 GÜN ALTI ÖDEME YAPANLAR\t156.418,00\t7\nBUGÜN YAPILDIRILAN KREDİ\t0,00\t0\nPORTFÖY BAZLI VAZİYET 31-91 GÜN\t\t\nBireysel Ürünler\t2.933.926,55\t39\nBireysel Yapılandırma\t13.870.190,60\t33\nTarım\t654.612,66\t3\nTarım Yapılandırma\t264.692,34\t2\nTicari / İşletme\t916.568,30\t9\nTicari Yapılandırma\t206.290,73\t1\nTARIM TOPLAM AKSAMA\t905.000,00\t4\nBİREYSEL TOPLAM AKSAMA\t16.804.117,15\t72\nKOBİ/PERA. TOPLAM AKSAMA\t1.085.000,00\t9\nTOPLAM YAPILANDIRMA KREDİSİ\t14.341.173,67\t36\nBireysel Ürünler Ödenen\t223.416,04\t1\nBireysel Yapılandırma Ödenen\t1.347.017,00\t2\nTarım Ödenen\t120.000,00\t1\nTarım Yapılandırma Ödenen\t90.000,00\t1\nTicari / İşletme Ödenen\t143.500,50\t1\nTicari Yapılandırma Ödenen\t35.000,00\t1\nTARIM TOPLAM ÖDEME\t110.000,00\t1\nBİREYSEL TOPLAM ÖDEME\t1.570.433,04\t3\nKOBİ/PERA. TOPLAM ÖDEME\t120.000,00\t1\nPORTFÖY BAZLI VAZİYET 15-91 GÜN\t\t\nBireysel Ürünler\t9.547.196,24\t117\nBireysel Yapılandırma\t15.459.127,22\t39\nTarım\t6.654.612,66\t4\nTarım Yapılandırma\t264.692,34\t2\nTicari / İşletme\t1.844.410,62\t14\nTicari Yapılandırma\t262.115,94\t2\nTARIM TOPLAM AKSAMA\t905.000,00\t6\nBİREYSEL TOPLAM AKSAMA\t25.006.323,46\t156\nKOBİ/PERA. TOPLAM AKSAMA\t1.085.000,00\t16\nTOPLAM YAPILANDIRMA KREDİSİ\t15.985.935,50\t43\nBireysel Ürünler Ödenen\t379.834,04\t8\nBireysel Yapılandırma Ödenen\t1.347.017,00\t2\nTarım Ödenen\t120.000,00\t1\nTarım Yapılandırma Ödenen\t90.000,00\t1\nTicari / İşletme Ödenen\t143.500,50\t1\nTicari Yapılandırma Ödenen\t35.000,00\t1\nTARIM TOPLAM ÖDEME\t110.000,00\t1\nBİREYSEL TOPLAM ÖDEME\t1.726.851,04\t10\nKOBİ/PERA. TOPLAM ÖDEME\t120.000,00\t1");
+    if (_p3.date && _p3.rows.length) saveToHistory(_p3.date, _p3.rows);
+  }
+  document.getElementById('todayInput').value = "24.06.2026\nAKSAMA VAZİYETİ\n\nTUTAR\tADET\n31-91 GÜN TOPLAM AKSAMA\t18.620.000,00\t88\n15-91 GÜN TOPLAM AKSAMA\t33.800.000,00\t176\nTOPLAM TAKIP BORCU\t14.087.447,65\t136\n31 GÜN ÜSTÜ ÖDEME YAPANLAR\t1.574.508,04\t3\n31 GÜN ALTI ÖDEME YAPANLAR\t156.418,00\t7\nBUGÜN YAPILDIRILAN KREDİ\t0,00\t0\nPORTFÖY BAZLI VAZİYET 31-91 GÜN\t\t\nBireysel Ürünler\t2.933.926,55\t39\nBireysel Yapılandırma\t13.870.190,60\t33\nTarım\t654.612,66\t3\nTarım Yapılandırma\t264.692,34\t2\nTicari / İşletme\t916.568,30\t9\nTicari Yapılandırma\t206.290,73\t1\nTARIM TOPLAM AKSAMA\t905.000,00\t4\nBİREYSEL TOPLAM AKSAMA\t16.804.117,15\t72\nKOBİ/PERA. TOPLAM AKSAMA\t1.085.000,00\t9\nTOPLAM YAPILANDIRMA KREDİSİ\t14.341.173,67\t36\nBireysel Ürünler Ödenen\t223.416,04\t1\nBireysel Yapılandırma Ödenen\t1.347.017,00\t2\nTarım Ödenen\t120.000,00\t1\nTarım Yapılandırma Ödenen\t90.000,00\t1\nTicari / İşletme Ödenen\t143.500,50\t1\nTicari Yapılandırma Ödenen\t35.000,00\t1\nTARIM TOPLAM ÖDEME\t210.000,00\t2\nBİREYSEL TOPLAM ÖDEME\t1.570.433,04\t3\nKOBİ/PERA. TOPLAM ÖDEME\t178.500,50\t2\nPORTFÖY BAZLI VAZİYET 15-91 GÜN\t\t\nBireysel Ürünler\t9.547.196,24\t117\nBireysel Yapılandırma\t15.459.127,22\t39\nTarım\t6.654.612,66\t4\nTarım Yapılandırma\t264.692,34\t2\nTicari / İşletme\t1.844.410,62\t14\nTicari Yapılandırma\t262.115,94\t2\nTARIM TOPLAM AKSAMA\t905.000,00\t6\nBİREYSEL TOPLAM AKSAMA\t25.006.323,46\t156\nKOBİ/PERA. TOPLAM AKSAMA\t1.085.000,00\t16\nTOPLAM YAPILANDIRMA KREDİSİ\t15.985.935,50\t43\nBireysel Ürünler Ödenen\t379.834,04\t8\nBireysel Yapılandırma Ödenen\t1.347.017,00\t2\nTarım Ödenen\t120.000,00\t1\nTarım Yapılandırma Ödenen\t90.000,00\t1\nTicari / İşletme Ödenen\t143.500,50\t1\nTicari Yapılandırma Ödenen\t35.000,00\t1\nTARIM TOPLAM ÖDEME\t210.000,00\t2\nBİREYSEL TOPLAM ÖDEME\t1.726.851,04\t10\nKOBİ/PERA. TOPLAM ÖDEME\t178.500,50\t2";
+  document.getElementById('yestInput').value = '';
+  setInputFeedback('<b>Örnek veriler yüklendi.</b> 16-18 ve 23 Haziran hafızada, 24 Haziran bugünün verisi olarak kutuya eklendi. 19-22 atlandı; kıyas otomatik son iş gününe (23.06) yapılacak. Şimdi <b>Panoyu Oluştur</b>\'a basın.', 'success');
+  document.getElementById('todayInput').scrollIntoView({
+    behavior: 'smooth',
+    block: 'start'
+  });
+}
+function renderActionSummary() {
+  var panel = document.getElementById('actionSummaryPanel');
+  var list = document.getElementById('actionSummaryList');
+  var rollBox = document.getElementById('actionRollBox');
+  if (!panel || !list || !rollBox) return;
+  var insights = generateInsights();
+  var roll = calcNetRollMovement();
+  var stripHtml = function stripHtml(s) {
+    return String(s).replace(/<[^>]*>/g, '');
+  };
+  if (roll) {
+    var bad = roll.delta31 > 0;
+    var cls = bad ? 't-bad' : roll.delta31 < 0 ? 't-good' : 't-flat';
+    var arrow = roll.delta31 > 0 ? "\u25B2" : roll.delta31 < 0 ? "\u25BC" : "\u2248";
+    var word = roll.delta31 > 0 ? "k\xF6t\xFCle\u015Fti" : roll.delta31 < 0 ? "iyile\u015Fti" : 'sabit';
+    rollBox.innerHTML = "<div class=\"note\" style=\"margin:0;\"><b>31-91 net hareket (yakla\u015F\u0131k):</b> Son i\u015F g\xFCn\xFCne g\xF6re 31-91 aksama <span class=\"" + cls + '" style="font-weight:700;">' + arrow + ' ' + fmtTL(Math.abs(roll.delta31)) + ' ' + word + "</span>. Erken dilim (15-30 g\xFCn) de\u011Fi\u015Fimi: <b>" + fmtTL(roll.deltaEarly) + "</b>. <span style=\"color:var(--ink3);\">Hafta sonu/tatil atland\u0131ysa k\u0131yas otomatik son girilen i\u015F g\xFCn\xFCne yap\u0131l\u0131r.</span></div>";
+  } else {
+    rollBox.innerHTML = "<div class=\"note\" style=\"margin:0;\"><b>31-91 net hareket:</b> K\u0131yas i\xE7in \xF6nceki g\xFCn verisi gerekli.</div>";
+  }
+  var actions = insights.slice(0, 3).map(function (ins) {
+    return '<li><b>' + ins.title + "</b> \u2014 " + stripHtml(ins.desc) + '</li>';
+  });
+  if (!actions.length) {
+    var gT = todayRows.filter(function (r) {
+      return r.section === 'GENEL';
+    });
+    var coll = (findRow(gT, ['31 GUN USTU']) || {}).tutar || 0;
+    var aks31 = (findRow(gT, ['31-91', 'TOPLAM AKSAMA']) || {}).tutar || 0;
+    var rate = aks31 > 0 ? coll / aks31 * 100 : 0;
+    actions.push("<li><b>Genel durum sakin.</b> 31-91 tahsilat oran\u0131 %" + rate.toFixed(1) + ". Segment karnesini ve yap\u0131land\u0131rma oran\u0131n\u0131 izlemeye devam edin.</li>");
+  }
+  list.innerHTML = actions.join('');
+  panel.style.display = 'block';
+}
+window.onload = function () {
+  markScriptReady();
+  attachInputFeedbackHandlers();
+  initTheme();
+  renderHistoryListUI();
+  initTextareaDragzone('todayInput', true);
+  initTextareaDragzone('yestInput', false);
+};
+</script> 
  
 </body> 
 </html>

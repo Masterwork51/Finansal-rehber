@@ -15,6 +15,7 @@ const path = require('path');
     buildDashboard: typeof buildDashboard,
     renderActionSummary: typeof renderActionSummary,
     getSegmentPayment: typeof getSegmentPayment,
+    scriptHealth: getComputedStyle(document.getElementById('scriptHealth')).display,
   }));
   console.log('DEFINED:', defined);
   if (errors.length) console.log('ERRORS:', errors);
@@ -77,6 +78,7 @@ const path = require('path');
   await browser.close();
 
   const ok = emptyState.feedback.includes('Bugünün verisi yok') &&
+    defined.scriptHealth === 'none' &&
     emptyState.dash === 'none' &&
     demoState.feedback.includes('Örnek veriler yüklendi') &&
     demoState.todayLength > 100 &&
