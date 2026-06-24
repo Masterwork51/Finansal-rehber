@@ -427,7 +427,8 @@ Oluştur</button>
     <button class="btn btn-ghost btn-block" style="margin-top:8px; border-color:var(--
 amber); color:var(--amber);" onclick="loadDemoData()">  Örnek Test Verisi Yükle (16-18, 23-24 Haziran)</button> 
  
-    <!-- Kayıtlı Geçmiş Bölümü --> 
+        <div id="inputFeedback" class="note" style="display:none; border-left-color:var(--amber);"></div>
+<!-- Kayıtlı Geçmiş Bölümü --> 
     <div id="history-section" style="margin-top: 24px; border-top: 1px solid var(--line); 
 padding-top: 15px; display:none;"> 
       <div class="eyebrow" style="margin-bottom: 10px;">Belleğe Kayıtlı Geçmiş 
@@ -480,6 +481,8 @@ anormallikler ve riskler listelenmiştir.</div>
     <div class="eyebrow">Düne Göre Değişim</div> 
     <div class="kpi-grid" id="kpiGrid"></div> 
      
+    <div id="chartUnavailableNote" class="note no-print" style="display:none; border-left-color:var(--amber);">Grafikler için internet bağlantısı/CDN erişimi gerekli. Ana pano, tablolar ve segment karnesi oluşturuldu.</div>
+
     <!-- Değişim Analizi Grafiği --> 
     <div id="chartKPIComparisonContainer" class="panel" style="margin-top: 14px; 
 display: none;"> 
@@ -830,18 +833,52 @@ tamamen yerel tarayıcı hafızasında saklar.</p>
      violet: isDark ? '#B197FC' : '#6446B8'
    };
  }
+
+ function setInputFeedback(message, type) {
+   const box = document.getElementById('inputFeedback');
+   if (!box) {
+     alert(String(message).replace(/<[^>]*>/g, ''));
+     return;
+   }
+   const color = type === 'error' ? 'var(--red)' : type === 'success' ? 'var(--green)' : 'var(--amber)';
+   box.style.display = 'block';
+   box.style.borderLeftColor = color;
+   box.innerHTML = message;
+ }
+
+ function clearInputFeedback() {
+   const box = document.getElementById('inputFeedback');
+   if (box) {
+     box.style.display = 'none';
+     box.innerHTML = '';
+   }
+ }
+
+ function attachInputFeedbackHandlers() {
+   ['todayInput', 'yestInput'].forEach(function(id) {
+     const el = document.getElementById(id);
+     if (el) {
+       el.addEventListener('input', clearInputFeedback);
+     }
+   });
+ }
+
  /* ---------- Panoyu Oluştur ---------- */
  function buildDashboard() {
-   const todayText = document.getElementById('todayInput').value;
+   const todayEl = document.getElementById('todayInput');
+   const todayText = todayEl.value;
    if (!todayText.trim()) {
-     alert('Lütfen bugünün verisini yapıştırın veya sürükleyin.');
+     setInputFeedback('<b>Bugünün verisi yok.</b> Excel verisini üstteki kutuya yapıştırın ya da demo için <b>Örnek Test Verisi Yükle</b> butonuna basın; sonra tekrar <b>Panoyu Oluştur</b>\'a basın.', 'warning');
+     todayEl.focus();
      return;
    }
    const pT = parseBlock(todayText);
    if (pT.rows.length === 0) {
-     alert("Bugünün verisi tanınamadı. Excel formatında kopyalayıp yapıştırdığınızdan emin olun.");
+     setInputFeedback('<b>Bugünün verisi tanınamadı.</b> Excel\'den ilgili alanı kopyalayıp bu kutuya yapıştırın. İlk satırda tarih, altında AKSAMA VAZİYETİ ve TUTAR/ADET satırları olmalı.', 'error');
+     todayEl.focus();
      return;
    }
+   clearInputFeedback();
    todayRows = pT.rows;
    todayDate = pT.date;
    if (todayDate) {
@@ -1393,6 +1430,16 @@ tamamen yerel tarayıcı hafızasında saklar.</p>
 
  function renderCharts() {
    destroyCharts();
+   const chartNotice = document.getElementById('chartUnavailableNote');
+   if (typeof Chart === 'undefined') {
+     if (chartNotice) chartNotice.style.display = 'block';
+     ['chartKPIComparisonContainer', 'chartRatioTrendContainer'].forEach(function(id) {
+       const el = document.getElementById(id);
+       if (el) el.style.display = 'none';
+     });
+     return;
+   }
+   if (chartNotice) chartNotice.style.display = 'none';
    const colors = getThemeColors();
    const isDark = document.body.classList.contains('dark-mode');
    // 1. KPI Comparison Chart
@@ -1793,7 +1840,11 @@ tamamen yerel tarayıcı hafızasında saklar.</p>
    }
    document.getElementById('todayInput').value = "24.06.2026\nAKSAMA VAZİYETİ\n\nTUTAR\tADET\n31-91 GÜN TOPLAM AKSAMA\t18.620.000,00\t88\n15-91 GÜN TOPLAM AKSAMA\t33.800.000,00\t176\nTOPLAM TAKIP BORCU\t14.087.447,65\t136\n31 GÜN ÜSTÜ ÖDEME YAPANLAR\t1.574.508,04\t3\n31 GÜN ALTI ÖDEME YAPANLAR\t156.418,00\t7\nBUGÜN YAPILDIRILAN KREDİ\t0,00\t0\nPORTFÖY BAZLI VAZİYET 31-91 GÜN\t\t\nBireysel Ürünler\t2.933.926,55\t39\nBireysel Yapılandırma\t13.870.190,60\t33\nTarım\t654.612,66\t3\nTarım Yapılandırma\t264.692,34\t2\nTicari / İşletme\t916.568,30\t9\nTicari Yapılandırma\t206.290,73\t1\nTARIM TOPLAM AKSAMA\t905.000,00\t4\nBİREYSEL TOPLAM AKSAMA\t16.804.117,15\t72\nKOBİ/PERA. TOPLAM AKSAMA\t1.085.000,00\t9\nTOPLAM YAPILANDIRMA KREDİSİ\t14.341.173,67\t36\nBireysel Ürünler Ödenen\t223.416,04\t1\nBireysel Yapılandırma Ödenen\t1.347.017,00\t2\nTarım Ödenen\t120.000,00\t1\nTarım Yapılandırma Ödenen\t90.000,00\t1\nTicari / İşletme Ödenen\t143.500,50\t1\nTicari Yapılandırma Ödenen\t35.000,00\t1\nTARIM TOPLAM ÖDEME\t210.000,00\t2\nBİREYSEL TOPLAM ÖDEME\t1.570.433,04\t3\nKOBİ/PERA. TOPLAM ÖDEME\t178.500,50\t2\nPORTFÖY BAZLI VAZİYET 15-91 GÜN\t\t\nBireysel Ürünler\t9.547.196,24\t117\nBireysel Yapılandırma\t15.459.127,22\t39\nTarım\t6.654.612,66\t4\nTarım Yapılandırma\t264.692,34\t2\nTicari / İşletme\t1.844.410,62\t14\nTicari Yapılandırma\t262.115,94\t2\nTARIM TOPLAM AKSAMA\t905.000,00\t6\nBİREYSEL TOPLAM AKSAMA\t25.006.323,46\t156\nKOBİ/PERA. TOPLAM AKSAMA\t1.085.000,00\t16\nTOPLAM YAPILANDIRMA KREDİSİ\t15.985.935,50\t43\nBireysel Ürünler Ödenen\t379.834,04\t8\nBireysel Yapılandırma Ödenen\t1.347.017,00\t2\nTarım Ödenen\t120.000,00\t1\nTarım Yapılandırma Ödenen\t90.000,00\t1\nTicari / İşletme Ödenen\t143.500,50\t1\nTicari Yapılandırma Ödenen\t35.000,00\t1\nTARIM TOPLAM ÖDEME\t210.000,00\t2\nBİREYSEL TOPLAM ÖDEME\t1.726.851,04\t10\nKOBİ/PERA. TOPLAM ÖDEME\t178.500,50\t2";
    document.getElementById('yestInput').value = '';
-   alert('Örnek veriler yüklendi (16-18 ve 23 Haziran hafızada, 24 Haziran bugün). 19-22 atlandı — kıyas otomatik son iş gününe (23.06) yapılır. Panoyu Oluştur\'a basın.');
+   setInputFeedback('<b>Örnek veriler yüklendi.</b> 16-18 ve 23 Haziran hafızada, 24 Haziran bugünün verisi olarak kutuya eklendi. 19-22 atlandı; kıyas otomatik son iş gününe (23.06) yapılacak. Şimdi <b>Panoyu Oluştur</b>\'a basın.', 'success');
+   document.getElementById('todayInput').scrollIntoView({
+     behavior: 'smooth',
+     block: 'start'
+   });
  }
 
  function renderActionSummary() {
@@ -1832,6 +1883,7 @@ tamamen yerel tarayıcı hafızasında saklar.</p>
  }
 
  window.onload = function() {
+   attachInputFeedbackHandlers();
    initTheme();
    renderHistoryListUI();
    initTextareaDragzone('todayInput', true);

@@ -91,6 +91,38 @@ function calcNetRollMovement() {
 }
 """
 
+input_feedback_fn = r"""
+function setInputFeedback(message, type) {
+  const box = document.getElementById('inputFeedback');
+  if (!box) {
+    alert(String(message).replace(/<[^>]*>/g, ''));
+    return;
+  }
+  const color = type === 'error' ? 'var(--red)' : type === 'success' ? 'var(--green)' : 'var(--amber)';
+  box.style.display = 'block';
+  box.style.borderLeftColor = color;
+  box.innerHTML = message;
+}
+
+function clearInputFeedback() {
+  const box = document.getElementById('inputFeedback');
+  if (box) {
+    box.style.display = 'none';
+    box.innerHTML = '';
+  }
+}
+
+function attachInputFeedbackHandlers() {
+  ['todayInput', 'yestInput'].forEach(function(id) {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('input', clearInputFeedback);
+    }
+  });
+}
+
+"""
+
 action_fn = r"""
 function renderActionSummary() {
   const panel = document.getElementById('actionSummaryPanel');
@@ -163,6 +195,61 @@ for pat, repl in flex:
     if n == 0:
         raise SystemExit(f'Missing flex pattern: {pat}')
     js = js2
+
+if 'function setInputFeedback(' not in js:
+    marker = '/* ---------- Panoyu Oluştur ---------- */'
+    if marker not in js:
+        raise SystemExit('Missing buildDashboard marker')
+    js = js.replace(marker, input_feedback_fn + marker, 1)
+
+js, n = re.subn(
+    r"const\s+todayText\s*=\s*document\.getElementById\('todayInput'\)\.value;\s*if\s*\(\s*!todayText\.trim\(\)\s*\)\s*\{\s*alert\('Lütfen bugünün verisini yapıştırın veya sürükleyin\.'\);\s*return;\s*\}",
+    "const todayEl = document.getElementById('todayInput');\n"
+    "  const todayText = todayEl.value;\n"
+    "  if (!todayText.trim()) {\n"
+    "    setInputFeedback('<b>Bugünün verisi yok.</b> Excel verisini üstteki kutuya yapıştırın ya da demo için <b>Örnek Test Verisi Yükle</b> butonuna basın; sonra tekrar <b>Panoyu Oluştur</b>\\'a basın.', 'warning');\n"
+    "    todayEl.focus();\n"
+    "    return;\n"
+    "  }",
+    js,
+    count=1,
+)
+if n == 0:
+    raise SystemExit('Missing empty today input validation pattern')
+
+js, n = re.subn(
+    r"if\s*\(\s*pT\.rows\.length\s*===\s*0\s*\)\s*\{\s*alert\([\"']Bugünün verisi tanınamadı\. Excel formatında kopyalayıp yapıştırdığınızdan emin olun\.[\"']\);\s*return;\s*\}",
+    "if (pT.rows.length === 0) {\n"
+    "    setInputFeedback('<b>Bugünün verisi tanınamadı.</b> Excel\\'den ilgili alanı kopyalayıp bu kutuya yapıştırın. İlk satırda tarih, altında AKSAMA VAZİYETİ ve TUTAR/ADET satırları olmalı.', 'error');\n"
+    "    todayEl.focus();\n"
+    "    return;\n"
+    "  }\n"
+    "  clearInputFeedback();",
+    js,
+    count=1,
+)
+if n == 0:
+    raise SystemExit('Missing parse failure validation pattern')
+
+js, n = re.subn(
+    r"function renderCharts\(\) \{\s*destroyCharts\(\);",
+    "function renderCharts() {\n"
+    "  destroyCharts();\n"
+    "  const chartNotice = document.getElementById('chartUnavailableNote');\n"
+    "  if (typeof Chart === 'undefined') {\n"
+    "    if (chartNotice) chartNotice.style.display = 'block';\n"
+    "    ['chartKPIComparisonContainer', 'chartRatioTrendContainer'].forEach(function(id) {\n"
+    "      const el = document.getElementById(id);\n"
+    "      if (el) el.style.display = 'none';\n"
+    "    });\n"
+    "    return;\n"
+    "  }\n"
+    "  if (chartNotice) chartNotice.style.display = 'none';",
+    js,
+    count=1,
+)
+if n == 0:
+    raise SystemExit('Missing renderCharts start pattern')
 
 # Demo data
 def tr(n):
@@ -269,7 +356,7 @@ new_demo = (
     + "   document.getElementById('todayInput').value = "
     + json.dumps(blocks['24'], ensure_ascii=False)
     + ";   document.getElementById('yestInput').value = '';   "
-    + "alert('Örnek veriler yüklendi (16-18 ve 23 Haziran hafızada, 24 Haziran bugün). 19-22 atlandı — kıyas otomatik son iş gününe (23.06) yapılır. Panoyu Oluştur\\'a basın.'); }  "
+    + "setInputFeedback('<b>Örnek veriler yüklendi.</b> 16-18 ve 23 Haziran hafızada, 24 Haziran bugünün verisi olarak kutuya eklendi. 19-22 atlandı; kıyas otomatik son iş gününe (23.06) yapılacak. Şimdi <b>Panoyu Oluştur</b>\\'a basın.', 'success');   document.getElementById('todayInput').scrollIntoView({behavior:'smooth', block:'start'}); }  "
 )
 js = js[:start] + new_demo + js[end:]
 
@@ -279,6 +366,12 @@ if 'function renderActionSummary()' not in js:
     if marker not in js:
         raise SystemExit('Missing window.onload marker')
     js = js.replace(marker, action_fn + marker, 1)
+
+js = js.replace(
+    "window.onload = function() {",
+    "window.onload = function() {\n  attachInputFeedbackHandlers();",
+    1,
+)
 
 opts = jsbeautifier.default_options()
 opts.indent_size = 2
@@ -300,6 +393,20 @@ html_out = re.sub(
     'Örnek Test Verisi Yükle (16-18, 23-24 Haziran)',
     html_out,
     count=1,
+)
+html_out, n = re.subn(
+    r'(<button class="btn btn-ghost btn-block"[\s\S]*?onclick="loadDemoData\(\)">\s*Örnek Test Verisi Yükle \(16-18, 23-24 Haziran\)</button>\s*)',
+    r'\1    <div id="inputFeedback" class="note" style="display:none; border-left-color:var(--amber);"></div>\n',
+    html_out,
+    count=1,
+)
+if n == 0:
+    raise SystemExit('Missing demo button for input feedback insertion')
+html_out = html_out.replace(
+    '    <!-- Değişim Analizi Grafiği --> \n',
+    '    <div id="chartUnavailableNote" class="note no-print" style="display:none; border-left-color:var(--amber);">Grafikler için internet bağlantısı/CDN erişimi gerekli. Ana pano, tablolar ve segment karnesi oluşturuldu.</div>\n\n'
+    '    <!-- Değişim Analizi Grafiği --> \n',
+    1,
 )
 
 OUT.write_text(html_out)
