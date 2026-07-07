@@ -1,13 +1,18 @@
-const CACHE_NAME = 'finans-paneli-v4-0';
+const CACHE_NAME = 'finans-paneli-v4-1';
 const ASSETS = [
   './index.html',
+  './yatirim.html',
   './css/styles.css',
+  './css/invest.css',
   './js/data.js',
   './js/modal.js',
   './js/rates.js',
   './js/advice.js',
   './js/charts.js',
   './js/app.js',
+  './js/invest-engine.js',
+  './js/invest-data.js',
+  './js/invest-app.js',
   './data/tcmb-rates.json',
   './manifest.json',
   './icons/icon-192.png',
