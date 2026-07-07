@@ -17,7 +17,7 @@ jobs:
       - name: Site dosyalarını hazırla
         run: |
           mkdir -p _site
-          cp index.html manifest.json sw.js _site/
+          cp index.html yatirim.html manifest.json sw.js _site/
           cp -r css js icons data _site/
 
       - name: GitHub Pages'e yükle
