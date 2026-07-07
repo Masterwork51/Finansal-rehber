@@ -13,8 +13,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/styles.css?v=4.1">
-  <link rel="stylesheet" href="css/invest.css?v=4.1">
+  <link rel="stylesheet" href="css/styles.css?v=4.2">
+  <link rel="stylesheet" href="css/invest.css?v=4.2">
 </head>
 <body>
   <div id="app">
@@ -32,7 +32,7 @@
       </div>
     </header>
 
-    <main class="main">
+    <main class="main" id="invest-main">
       <!-- İlk kurulum ipucu -->
       <section class="card inv-empty-card hidden" id="inv-empty-card">
         <h2>Hoş geldin 👋</h2>
@@ -49,9 +49,21 @@
       <section class="card savings-hero inv-hero" id="inv-hero">
         <span class="label">Bu Ay Güvenle Yatırabileceğin</span>
         <p class="savings-amount" id="inv-max">₺0</p>
+        <p class="inv-max-usd" id="inv-max-usd"></p>
         <p class="savings-sub" id="inv-max-sub">—</p>
         <span class="risk-badge safe" id="inv-status-badge"><span class="risk-dot"></span> —</span>
         <button type="button" class="inv-why-btn" id="btn-why">Neden bu rakam? →</button>
+      </section>
+
+      <!-- Aylık özet — tek bakışta gelir/gider/kart/kalan -->
+      <section class="card flow-card" id="summary-card">
+        <h2>Aylık Özetin</h2>
+        <p class="section-desc">Bu ay kalan gelirin, giderlerin ve ödemelerin — hepsi tek listede.</p>
+        <ul class="flow-list" id="summary-list"></ul>
+        <div class="flow-result">
+          <span>Kalan → Yatırılabilir</span>
+          <strong id="summary-result">—</strong>
+        </div>
       </section>
 
       <!-- Risk seviyesi -->
@@ -113,34 +125,58 @@
       <!-- Varlıklar -->
       <section class="card" id="assets-section">
         <div class="card-header">
-          <h2>Likit Varlıklar</h2>
+          <h2>Varlıklarım</h2>
           <button type="button" class="text-btn" id="btn-add-asset">+ Ekle</button>
         </div>
-        <p class="section-desc">Nakit, banka hesapları, döviz ve altın — her birini ayrı gir.</p>
-        <ul class="inv-list" id="assets-list"></ul>
-        <p class="inv-list-total" id="assets-total"></p>
+        <p class="section-desc">Nakit, banka hesapları, döviz ve altın — her birini ayrı gir. Zaten yatırım olarak tuttuğun döviz/altın ayrı sayılır, tekrar yatırılabilir hesaba katılmaz.</p>
+
+        <p class="inv-list-total inv-list-total-top" id="assets-cash-total"></p>
+        <ul class="inv-list" id="assets-cash-list"></ul>
+
+        <h3 class="inv-group-title inv-group-title-muted">Mevcut Yatırımların <span class="inv-chip">hesaba dahil değil</span></h3>
+        <ul class="inv-list" id="assets-investment-list"></ul>
+        <p class="inv-list-total" id="assets-investment-total"></p>
+      </section>
+
+      <!-- Kredi Kartı -->
+      <section class="card credit-card" id="cc-section">
+        <div class="card-header">
+          <h2>Kredi Kartı</h2>
+          <button type="button" class="text-btn" id="btn-edit-cc">Düzenle</button>
+        </div>
+        <p class="section-desc">Bu ay ödeyeceğin tutarı elle gir — hesaptan otomatik düşülür.</p>
+        <div class="cc-grid">
+          <div class="cc-stat">
+            <span class="label">Toplam Borç</span>
+            <span class="cc-amount danger" id="cc-debt">—</span>
+          </div>
+          <div class="cc-stat">
+            <span class="label">Bu Ay Ödeyeceğin</span>
+            <span class="cc-date" id="cc-planned">—</span>
+          </div>
+        </div>
       </section>
 
       <!-- Gelirler -->
       <section class="card" id="incomes-section">
         <div class="card-header">
-          <h2>Gelirler</h2>
+          <h2>Gelirlerim</h2>
           <button type="button" class="text-btn" id="btn-add-income">+ Ekle</button>
         </div>
-        <p class="section-desc">Maaş, kira, temettü… Güvenilirliğini de seç.</p>
+        <p class="section-desc">Maaş, kira, temettü… 3 ayda bir / yılda bir gelen gelirleri de ekleyebilirsin.</p>
+        <p class="inv-list-total inv-list-total-top" id="incomes-total"></p>
         <ul class="inv-list" id="incomes-list"></ul>
-        <p class="inv-list-total" id="incomes-total"></p>
       </section>
 
       <!-- Giderler -->
       <section class="card" id="expenses-section">
         <div class="card-header">
-          <h2>Giderler</h2>
+          <h2>Giderlerim</h2>
           <button type="button" class="text-btn" id="btn-add-expense">+ Ekle</button>
         </div>
         <p class="section-desc">Faturalar ve abonelikler ayrı ayrı. Her giderin kalitesini etiketle.</p>
+        <p class="inv-list-total inv-list-total-top" id="expenses-total"></p>
         <div id="expenses-groups"></div>
-        <p class="inv-list-total" id="expenses-total"></p>
       </section>
 
       <!-- Hedefler -->
@@ -192,12 +228,18 @@
         <form id="asset-form" class="quick-form">
           <input type="hidden" name="id">
           <label class="quick-field"><span>Ad (örn: Ziraat Vadesiz, Nakit USD)</span><input type="text" name="name" required maxlength="40"></label>
+          <label class="quick-field"><span>Bu varlık ne amaçla duruyor?</span>
+            <select name="purpose" id="asset-purpose">
+              <option value="cash">Kullanılabilir nakit — harcayabilir/yatırabilirim</option>
+              <option value="investment">Zaten yatırım — dokunmuyorum (ör. elimdeki döviz/altın)</option>
+            </select>
+          </label>
           <div class="inv-field-row">
             <label class="quick-field"><span>Tür</span>
               <select name="kind"><option value="cash">Nakit</option><option value="bankAccount">Banka Hesabı</option></select>
             </label>
             <label class="quick-field"><span>Para birimi</span>
-              <select name="currency"><option value="TRY">TL</option><option value="USD">USD</option><option value="EUR">EUR</option><option value="XAU">Gram Altın</option></select>
+              <select name="currency" id="asset-currency"><option value="TRY">TL</option><option value="USD">USD</option><option value="EUR">EUR</option><option value="XAU">Gram Altın</option></select>
             </label>
           </div>
           <label class="quick-field"><span>Miktar <em id="asset-amount-hint"></em></span><input type="number" name="amount" inputmode="decimal" min="0" step="any" required></label>
@@ -209,7 +251,7 @@
               <option value="month1plus">1 ay veya daha uzun</option>
             </select>
           </label>
-          <p class="inv-form-hint">1 haftadan uzun sürede erişilen varlıklar bu ayın yatırım hesabına katılmaz, toplam varlıkta görünür.</p>
+          <p class="inv-form-hint" id="asset-purpose-hint">"Zaten yatırım" seçtiğin varlıklar (örn. elindeki dolar/altın) bu ayın yatırılabilir tutar hesabına DAHİL EDİLMEZ — sadece toplam servetinde ayrıca gösterilir. Sadece kasada/hesapta duran, ne yapacağına henüz karar vermediğin nakit için "Kullanılabilir nakit" seç.</p>
           <div class="modal-actions">
             <button type="button" class="btn danger hidden" id="btn-delete-asset">Sil</button>
             <button type="submit" class="btn primary">Kaydet</button>
@@ -227,18 +269,24 @@
         </div>
         <form id="income-form" class="quick-form">
           <input type="hidden" name="id">
-          <label class="quick-field"><span>Ad (örn: Maaş, Kira geliri)</span><input type="text" name="name" required maxlength="40"></label>
-          <label class="quick-field"><span>Aylık tutar (TL)</span><input type="number" name="amountTl" inputmode="decimal" min="0" step="any" required></label>
+          <label class="quick-field"><span>Ad (örn: Maaş, Kira geliri, 3 aylık prim)</span><input type="text" name="name" required maxlength="40"></label>
+          <label class="quick-field"><span>Her gelişinde tutar (TL)</span><input type="number" name="amountTl" inputmode="decimal" min="0" step="any" required></label>
           <div class="inv-field-row">
-            <label class="quick-field"><span>Düzen</span>
-              <select name="recurrence"><option value="regular">Düzenli (her ay)</option><option value="irregular">Düzensiz</option></select>
+            <label class="quick-field"><span>Ne sıklıkla gelir?</span>
+              <select name="frequency" id="income-frequency">
+                <option value="monthly">Her ay</option>
+                <option value="quarterly">3 ayda bir</option>
+                <option value="biannual">6 ayda bir</option>
+                <option value="annual">Yılda bir</option>
+                <option value="irregular">Düzensiz / belirsiz</option>
+              </select>
             </label>
             <label class="quick-field"><span>Güvenilirlik</span>
               <select name="reliability"><option value="guaranteed">Garantili</option><option value="likely">Olası</option><option value="uncertain">Belirsiz</option></select>
             </label>
           </div>
-          <label class="quick-field"><span>Ayın kaçında gelir? (boş bırakılabilir)</span><input type="number" name="expectedDay" inputmode="numeric" min="1" max="31"></label>
-          <p class="inv-form-hint">Bu ayın kesin hesabına yalnızca <strong>garantili + günü henüz gelmemiş</strong> gelirler katılır. Diğerleri sonraki ay tahmininde kullanılır.</p>
+          <label class="quick-field" id="income-date-field"><span>Sıradaki ödeme tarihi</span><input type="date" name="nextDate"></label>
+          <p class="inv-form-hint">Bu ayın kesin hesabına yalnızca <strong>garantili</strong> ve <strong>sıradaki ödeme tarihi bu ay içinde olan</strong> gelirler katılır — periyot fark etmez, 3 ayda bir gelen maaşın da doğru ayda sayılır.</p>
           <div class="modal-actions">
             <button type="button" class="btn danger hidden" id="btn-delete-income">Sil</button>
             <button type="submit" class="btn primary">Kaydet</button>
@@ -300,6 +348,23 @@
       </div>
     </div>
 
+    <!-- Kredi kartı düzenle -->
+    <div id="cc-modal" class="modal-sheet" aria-hidden="true">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Kredi Kartı</h2>
+          <button type="button" class="icon-btn modal-close" aria-label="Kapat">&times;</button>
+        </div>
+        <form id="cc-form" class="quick-form">
+          <label class="quick-field"><span>Toplam borç (TL)</span><input type="number" name="debt" inputmode="decimal" min="0" step="any"></label>
+          <label class="quick-field"><span>Bu ay ödeyeceğin (TL)</span><input type="number" name="plannedPayment" inputmode="decimal" min="0" step="any"></label>
+          <label class="quick-field"><span>Son ödeme günü (opsiyonel)</span><input type="number" name="dueDay" inputmode="numeric" min="1" max="31"></label>
+          <p class="inv-form-hint">Bu ay ödeyeceğin tutar, yatırılabilir hesabından doğrudan düşülür.</p>
+          <div class="modal-actions"><button type="submit" class="btn primary">Kaydet</button></div>
+        </form>
+      </div>
+    </div>
+
     <!-- Ayarlar -->
     <div id="invest-settings-modal" class="modal-sheet" aria-hidden="true">
       <div class="modal-content">
@@ -319,9 +384,9 @@
     </div>
   </div>
 
-  <script src="js/modal.js?v=4.1"></script>
-  <script src="js/invest-engine.js?v=4.1"></script>
-  <script src="js/invest-data.js?v=4.1"></script>
-  <script src="js/invest-app.js?v=4.1"></script>
+  <script src="js/modal.js?v=4.2"></script>
+  <script src="js/invest-engine.js?v=4.2"></script>
+  <script src="js/invest-data.js?v=4.2"></script>
+  <script src="js/invest-app.js?v=4.2"></script>
 </body>
 </html>

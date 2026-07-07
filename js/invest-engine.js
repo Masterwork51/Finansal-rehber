@@ -9,6 +9,11 @@
  *   1. Enflasyona karşı koruma
  *   2. Uzun vadede maksimum servet birikimi
  *   3. Günlük hayatta rahat hissetmek
+ *
+ * ÖNEMLİ KURAL: Sadece "amaç = nakit" varlıklar bu ayın yatırım hesabına girer.
+ * "amaç = yatırım" işaretli varlıklar (ör. zaten alınmış döviz/altın) ZATEN
+ * yapılmış bir yatırım kabul edilir ve tekrar "yatırılabilir" havuza sayılmaz —
+ * yalnızca bilgi amaçlı "mevcut portföy" olarak ayrı gösterilir.
  */
 (function (root, factory) {
   const api = factory();
@@ -20,12 +25,6 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  /**
-   * Risk seviyesi parametreleri — tüm tamponların tek şeffaf kaynağı.
-   * bufferMonths : kenarda tutulacak zorunlu gider (ay cinsinden)
-   * stressPct    : beklenmedik gider payı (aylık toplam giderin yüzdesi)
-   * likelyFactor / uncertainFactor : sonraki ay tahmininde gelir güvenilirlik katsayıları
-   */
   const RISK_PARAMS = {
     conservative: { label: 'Konservatif', bufferMonths: 3, stressPct: 0.15, likelyFactor: 0.70, uncertainFactor: 0.00 },
     balanced:     { label: 'Dengeli',     bufferMonths: 2, stressPct: 0.10, likelyFactor: 0.85, uncertainFactor: 0.40 },
@@ -33,9 +32,8 @@
   };
 
   const RISK_ORDER = ['aggressive', 'balanced', 'conservative'];
-
-  /** Kötümser senaryoda giderlere uygulanan şok çarpanı */
   const PESSIMISTIC_EXPENSE_SHOCK = 1.15;
+  const FREQUENCY_MONTHS = { monthly: 1, quarterly: 3, biannual: 6, annual: 12, irregular: null };
 
   // ---------- Yardımcılar ----------
 
@@ -50,7 +48,10 @@
     return Math.max(1, m);
   }
 
-  /** Bir varlığın TL karşılığı */
+  function sameMonth(a, b) {
+    return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
+  }
+
   function assetTl(asset, rates) {
     const amount = Number(asset.amount) || 0;
     switch (asset.currency) {
@@ -62,11 +63,12 @@
     }
   }
 
-  /** Varlıkları erişim hızına göre topla (TL) */
+  /** Sadece "nakit" amaçlı varlıklar — bu ayın yatırım hesabına girer */
   function liquidTotals(assets, rates) {
     let quick = 0;
     let slow = 0;
     for (const a of assets) {
+      if (a.purpose === 'investment') continue;
       const tl = assetTl(a, rates);
       if (a.accessibility === 'instant' || a.accessibility === 'days1to3') quick += tl;
       else slow += tl;
@@ -74,7 +76,22 @@
     return { quick, slow, total: quick + slow };
   }
 
-  /** Aylık gider toplamları (tam ay, kategori/zorunluluk kırılımı) */
+  /** "Yatırım" amaçlı varlıklar — zaten yapılmış yatırım, sadece bilgi amaçlı toplam */
+  function investmentTotals(assets, rates) {
+    let total = 0;
+    const byCurrency = {};
+    for (const a of assets) {
+      if (a.purpose !== 'investment') continue;
+      const tl = assetTl(a, rates);
+      total += tl;
+      const cur = a.currency;
+      if (!byCurrency[cur]) byCurrency[cur] = { amount: 0, tl: 0 };
+      byCurrency[cur].amount += Number(a.amount) || 0;
+      byCurrency[cur].tl += tl;
+    }
+    return { total, byCurrency };
+  }
+
   function expenseTotals(expenses) {
     const t = { total: 0, essential: 0, semiEssential: 0, optional: 0 };
     for (const e of expenses) {
@@ -117,43 +134,44 @@
 
   /**
    * Bu ay içinde HÂLÂ gelecek KESİN gelir.
-   * Kesin hesap için sadece: düzenli + garantili + beklenen günü henüz geçmemiş gelirler.
-   * (Geçmiş gelirler zaten hesap bakiyene girdi; tekrar sayarsak çift sayarız.)
+   * Periyoda bakılmaksızın (aylık / 3 ayda bir / yılda bir / düzensiz):
+   * gelir sadece GARANTİLİ ise ve "sıradaki ödeme tarihi" bu ay içinde, bugünden
+   * sonra ise sayılır. Böylece 3 ayda bir yatan maaş da doğru ayda hesaba girer.
    */
   function remainingIncomeThisMonth(incomes, date) {
-    const day = date.getDate();
     let sum = 0;
     const items = [];
     for (const inc of incomes) {
       const amt = Number(inc.amountTl) || 0;
-      const eligible =
-        inc.recurrence === 'regular' &&
-        inc.reliability === 'guaranteed' &&
-        inc.expectedDay != null && inc.expectedDay !== '' &&
-        Number(inc.expectedDay) >= day;
+      if (!inc.nextDate) continue;
+      const next = new Date(inc.nextDate);
+      if (isNaN(next)) continue;
+      const eligible = inc.reliability === 'guaranteed' && sameMonth(next, date) && next >= new Date(date.getFullYear(), date.getMonth(), date.getDate());
       if (eligible) {
         sum += amt;
-        items.push({ id: inc.id, name: inc.name, counted: amt, note: `ayın ${inc.expectedDay}. günü gelecek` });
+        items.push({ id: inc.id, name: inc.name, counted: amt, note: `${next.getDate()}.${next.getMonth() + 1} tarihinde gelecek` });
       }
     }
     return { sum, items };
   }
 
-  /** Sonraki ay için güvenilirlik katsayılı gelir tahmini */
+  /** Sonraki ay(lar) için ortalama aylık gelir tahmini — periyodik gelirler aya bölünür */
   function projectedMonthlyIncome(incomes, riskLevel) {
     const p = RISK_PARAMS[riskLevel] || RISK_PARAMS.balanced;
     let sum = 0;
     for (const inc of incomes) {
-      if (inc.recurrence !== 'regular') continue;
       const amt = Number(inc.amountTl) || 0;
-      if (inc.reliability === 'guaranteed') sum += amt;
-      else if (inc.reliability === 'likely') sum += amt * p.likelyFactor;
-      else sum += amt * p.uncertainFactor;
+      const intervalMonths = FREQUENCY_MONTHS[inc.frequency];
+      const monthlyEquivalent = intervalMonths ? amt / intervalMonths : amt;
+      let factor = 1;
+      if (inc.reliability === 'likely') factor = p.likelyFactor;
+      else if (inc.reliability === 'uncertain') factor = p.uncertainFactor;
+      if (inc.frequency === 'irregular') factor = Math.min(factor, p.uncertainFactor || 0.4);
+      sum += monthlyEquivalent * factor;
     }
     return sum;
   }
 
-  /** Hedefler için bu ay ayrılması gereken toplam rezerv */
   function goalReserves(goals, date) {
     let sum = 0;
     const items = [];
@@ -168,21 +186,28 @@
     return { sum, items };
   }
 
-  /** Riski bir kademe konservatifleştir (kötümser senaryo için) */
   function bumpRiskConservative(riskLevel) {
     const i = RISK_ORDER.indexOf(riskLevel);
     return RISK_ORDER[Math.min(RISK_ORDER.length - 1, i + 1)] || 'conservative';
+  }
+
+  /** Bu ay ödenmesi planlanan kredi kartı tutarı (borçtan fazla olamaz) */
+  function creditCardPaymentThisMonth(creditCard) {
+    if (!creditCard) return 0;
+    const debt = Math.max(0, Number(creditCard.debt) || 0);
+    const planned = Math.max(0, Number(creditCard.plannedPayment) || 0);
+    return Math.min(debt, planned);
   }
 
   // ---------- Ana hesap ----------
 
   /**
    * Bir ayın "maksimum güvenli yatırım" hesabı.
-   * opts: { riskLevel, expenseShock (çarpan), date }
    * Formül (şeffaf):
-   *   max = hemen erişilebilir likit
+   *   max = kullanılabilir nakit (yatırım amaçlı varlıklar HARİÇ)
    *       + bu ay kalan kesin gelir
    *       − bu ay kalan gider (şok çarpanı ile)
+   *       − bu ay kredi kartı ödemesi
    *       − hedef rezervi (bu ayın payı)
    *       − acil durum yastığı (risk × zorunlu gider)
    *       − beklenmedik gider payı (risk % × aylık gider)
@@ -194,22 +219,24 @@
     const p = RISK_PARAMS[riskLevel];
 
     const liquid = liquidTotals(state.assets, state.rates);
+    const investments = investmentTotals(state.assets, state.rates);
     const income = remainingIncomeThisMonth(state.incomes, date);
     const expRemain = remainingExpensesThisMonth(state.expenses, date);
     const totals = expenseTotals(state.expenses);
     const goals = goalReserves(state.goals, date);
+    const cardPayment = creditCardPaymentThisMonth(state.creditCard);
 
     const expensesCounted = expRemain.sum * shock;
     const emergencyBuffer = p.bufferMonths * totals.essential;
     const stressReserve = p.stressPct * totals.total;
 
-    const raw = liquid.quick + income.sum - expensesCounted - goals.sum - emergencyBuffer - stressReserve;
+    const raw = liquid.quick + income.sum - expensesCounted - cardPayment - goals.sum - emergencyBuffer - stressReserve;
     const max = Math.max(0, Math.floor(raw));
+    const maxUsd = state.rates.usdTry ? Math.floor(max / state.rates.usdTry) : null;
 
-    // Durum: yeşil = yatırım yapılabilir, turuncu = tampon yüzünden 0, kırmızı = giderler bile karşılanamıyor
     let status = 'safe';
     if (max <= 0) {
-      const beforeBuffers = liquid.quick + income.sum - expensesCounted - goals.sum;
+      const beforeBuffers = liquid.quick + income.sum - expensesCounted - cardPayment - goals.sum;
       status = beforeBuffers > 0 ? 'tight' : 'risk';
     }
 
@@ -220,11 +247,14 @@
       liquidQuick: liquid.quick,
       liquidSlow: liquid.slow,
       liquidTotal: liquid.total,
+      investmentTotal: investments.total,
+      investmentByCurrency: investments.byCurrency,
       incomeCounted: income.sum,
       incomeItems: income.items,
       expensesCounted,
       expenseItems: expRemain.items,
       expenseShock: shock,
+      cardPayment,
       goalReserve: goals.sum,
       goalItems: goals.items,
       emergencyBuffer,
@@ -233,16 +263,15 @@
       monthlyExpenseTotal: totals.total,
       raw,
       max,
+      maxUsd,
       status
     };
   }
 
-  /** Bu ay — kesin, gerçekçi hesap */
   function computeThisMonth(state, date) {
     return computeMonth(state, { date, riskLevel: state.riskLevel });
   }
 
-  /** Bu ay — kötümser senaryo: giderlere +%15 şok, risk bir kademe konservatif */
   function computePessimistic(state, date) {
     return computeMonth(state, {
       date,
@@ -253,7 +282,8 @@
 
   /**
    * Sonraki ay tahmini + basit nakit akış projeksiyonu.
-   * Varsayım: bu ay önerilen max yatırılır; tamponlar ve hedef rezervleri likitte kalır.
+   * Varsayım: bu ay önerilen max yatırılır; tamponlar ve hedef rezervleri likitte kalır;
+   * kredi kartı borcu bu ayki ödeme kadar azalır ve kalan borç için ödeme devam eder.
    */
   function computeNextMonth(state, date) {
     const now = date || new Date();
@@ -262,33 +292,36 @@
     const totals = expenseTotals(state.expenses);
     const goals = goalReserves(state.goals, now);
 
-    // Bu ay sonunda kalan likit (yatırım yapıldıktan sonra)
-    const closing = thisMonth.liquidTotal + thisMonth.incomeCounted - thisMonth.expensesCounted - thisMonth.max;
+    const closing = thisMonth.liquidTotal + thisMonth.incomeCounted - thisMonth.expensesCounted - thisMonth.cardPayment - thisMonth.max;
 
     const monthlyIncome = projectedMonthlyIncome(state.incomes, state.riskLevel);
     const monthlyExpense = totals.total;
     const stressReserve = p.stressPct * monthlyExpense;
     const emergencyBuffer = p.bufferMonths * totals.essential;
 
-    // Sonraki ay: hedef rezervi birikir (2 aylık pay kenarda tutulur)
-    const raw = closing + monthlyIncome - monthlyExpense - goals.sum * 2 - emergencyBuffer - stressReserve;
-    const max = Math.max(0, Math.floor(raw));
+    const remainingDebt = Math.max(0, (Number(state.creditCard?.debt) || 0) - thisMonth.cardPayment);
+    const nextCardPayment = remainingDebt > 0 ? Math.min(remainingDebt, Number(state.creditCard?.plannedPayment) || 0) : 0;
 
-    // 3 aylık basit nakit akış projeksiyonu (yatırım yapılmadığı varsayımıyla likit seyri)
+    const raw = closing + monthlyIncome - monthlyExpense - nextCardPayment - goals.sum * 2 - emergencyBuffer - stressReserve;
+    const max = Math.max(0, Math.floor(raw));
+    const maxUsd = state.rates.usdTry ? Math.floor(max / state.rates.usdTry) : null;
+
     const projection = [];
     let bal = closing;
     projection.push({ label: 'Bu ay sonu', balance: Math.round(closing) });
     for (let m = 1; m <= 2; m++) {
-      bal = bal + monthlyIncome - monthlyExpense;
+      bal = bal + monthlyIncome - monthlyExpense - (m === 1 ? nextCardPayment : 0);
       projection.push({ label: m === 1 ? 'Gelecek ay' : `${m} ay sonra`, balance: Math.round(bal) });
     }
 
     return {
       max,
+      maxUsd,
       raw,
       closing,
       monthlyIncome,
       monthlyExpense,
+      nextCardPayment,
       goalReserve: goals.sum,
       emergencyBuffer,
       stressReserve,
@@ -303,10 +336,6 @@
     return Math.pow(1 + (Number(annualPct) || 0) / 100, 1 / 12) - 1;
   }
 
-  /**
-   * "Bu parayı X ay TL olarak tutarsan yaklaşık kaybedeceğin alım gücü."
-   * kayıp = tutar × (1 − 1 / (1 + aylıkOran)^ay)
-   */
   function inflationLoss(amount, annualPct, months) {
     const r = inflationMonthlyRate(annualPct);
     if (amount <= 0 || r <= 0 || months <= 0) return 0;
@@ -316,14 +345,17 @@
   return {
     RISK_PARAMS,
     PESSIMISTIC_EXPENSE_SHOCK,
+    FREQUENCY_MONTHS,
     assetTl,
     liquidTotals,
+    investmentTotals,
     expenseTotals,
     remainingExpensesThisMonth,
     remainingIncomeThisMonth,
     projectedMonthlyIncome,
     goalReserves,
     bumpRiskConservative,
+    creditCardPaymentThisMonth,
     computeMonth,
     computeThisMonth,
     computePessimistic,
