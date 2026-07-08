@@ -4,7 +4,7 @@
 
 let invData = investLoad();
 
-const INV_MODAL_IDS = ['why-modal', 'asset-modal', 'income-modal', 'expense-modal', 'goal-modal', 'invest-settings-modal'];
+const INV_MODAL_IDS = ['why-modal', 'asset-modal', 'income-modal', 'expense-modal', 'goal-modal', 'cc-modal', 'invest-settings-modal'];
 
 const INV_RISK_DESCRIPTIONS = {
   conservative: '3 aylık zorunlu giderin + giderlerinin %15\'i kenarda kalır. En rahat uyuduğun seçenek, yatırıma en az para kalır.',
@@ -33,11 +33,13 @@ function invRenderAll() {
   invRenderHeader();
   invRenderEmptyCard();
   invRenderHero();
+  invRenderSummary();
   invRenderRisk();
   invRenderScenarios();
   invRenderInflation();
   invRenderNextMonth();
   invRenderAssets();
+  invRenderCreditCard();
   invRenderIncomes();
   invRenderExpenses();
   invRenderGoals();
@@ -66,6 +68,9 @@ function invRenderHero() {
 
   document.getElementById('inv-max').textContent = investFmtTL(res.max);
 
+  const usdEl = document.getElementById('inv-max-usd');
+  usdEl.textContent = (res.max > 0 && res.maxUsd != null) ? `≈ ${investFmtUsd(res.maxUsd)}` : '';
+
   const sub = document.getElementById('inv-max-sub');
   const badge = document.getElementById('inv-status-badge');
   if (!invHasData()) {
@@ -85,6 +90,25 @@ function invRenderHero() {
     badge.className = 'risk-badge danger';
     badge.innerHTML = '<span class="risk-dot"></span> Riskli';
   }
+}
+
+/** Aylık Özet — eski uygulamadaki gibi tek bakışta gelir/gider/kart/kalan akışı */
+function invRenderSummary() {
+  const res = InvestEngine.computeThisMonth(invData);
+  const rows = [
+    { label: 'Bu ay kalan kesin gelir', value: investFmtTL(res.incomeCounted), type: 'plus' },
+    { label: 'Kullanılabilir nakit (bankada/elde)', value: investFmtTL(res.liquidQuick), type: 'plus' },
+    { label: 'Bu ay çıkacak giderler', value: '−' + investFmtTL(res.expensesCounted), type: 'minus' },
+    { label: 'Kredi kartı ödemesi', value: '−' + investFmtTL(res.cardPayment), type: 'minus' },
+    { label: 'Hedeflere ayrılan pay', value: '−' + investFmtTL(res.goalReserve), type: 'minus' },
+    { label: `Güvenlik yastığı (${res.params.label})`, value: '−' + investFmtTL(res.emergencyBuffer + res.stressReserve), type: 'minus' },
+    { label: 'Yatırılabilir tutar', value: investFmtTL(res.max), type: res.max >= 0 ? 'result' : 'danger' }
+  ];
+  document.getElementById('summary-list').innerHTML = rows.map((r) =>
+    `<li class="flow-row ${r.type}"><span>${r.label}</span><strong>${r.value}</strong></li>`
+  ).join('');
+  document.getElementById('summary-result').textContent =
+    res.maxUsd != null ? `${investFmtTL(res.max)} ≈ ${investFmtUsd(res.maxUsd)}` : investFmtTL(res.max);
 }
 
 function invRenderRisk() {
@@ -115,7 +139,6 @@ function invRenderInflation() {
   const res = InvestEngine.computeThisMonth(invData);
   const months = Number(document.getElementById('inflation-months').value) || 3;
   const annual = invData.inflation.annualPct;
-  // Enflasyon kaybını "yatırılabilir para" 0 olsa bile likit toplam üzerinden göster
   const base = res.max > 0 ? res.max : res.liquidTotal;
   const loss = InvestEngine.inflationLoss(base, annual, months);
 
@@ -133,7 +156,8 @@ function invRenderInflation() {
 
 function invRenderNextMonth() {
   const next = InvestEngine.computeNextMonth(invData);
-  document.getElementById('next-month-max').textContent = `≈ ${investFmtTL(next.max)}`;
+  document.getElementById('next-month-max').textContent =
+    next.maxUsd != null ? `≈ ${investFmtTL(next.max)} (≈ ${investFmtUsd(next.maxUsd)})` : `≈ ${investFmtTL(next.max)}`;
 
   const list = document.getElementById('projection-list');
   const maxAbs = Math.max(1, ...next.projection.map((p) => Math.abs(p.balance)));
@@ -155,32 +179,51 @@ function invAccessChip(acc) {
   return `<span class="inv-chip ${cls}">${INVEST_LABELS.accessibility[acc] || acc}</span>`;
 }
 
-function invRenderAssets() {
-  const el = document.getElementById('assets-list');
-  if (invData.assets.length === 0) {
-    el.innerHTML = '<li class="inv-list-empty" style="cursor:default">Henüz varlık yok. "+ Ekle" ile başla.</li>';
-    document.getElementById('assets-total').innerHTML = '';
-    return;
-  }
-  el.innerHTML = invData.assets.map((a) => {
-    const tl = InvestEngine.assetTl(a, invData.rates);
-    const unit = a.currency === 'XAU' ? 'gr' : INVEST_LABELS.currency[a.currency];
-    const orig = a.currency === 'TRY' ? '' : `<small>${(Number(a.amount) || 0).toLocaleString('tr-TR')} ${unit}</small>`;
-    return `<li data-edit="asset" data-id="${a.id}">
+function invAssetRow(a) {
+  const tl = InvestEngine.assetTl(a, invData.rates);
+  const unit = a.currency === 'XAU' ? 'gr' : INVEST_LABELS.currency[a.currency];
+  const orig = a.currency === 'TRY' ? '' : `<small>${(Number(a.amount) || 0).toLocaleString('tr-TR')} ${unit}</small>`;
+  return `<li data-edit="asset" data-id="${a.id}">
       <div class="inv-item-main">
         <span class="inv-item-name">${invEsc(a.name)}</span>
         <div class="inv-item-tags">
           <span class="inv-chip blue">${INVEST_LABELS.assetKind[a.kind] || ''}</span>
-          ${invAccessChip(a.accessibility)}
+          ${a.purpose === 'cash' ? invAccessChip(a.accessibility) : ''}
         </div>
       </div>
       <span class="inv-item-amount">${investFmtTL(tl)}${orig}</span>
     </li>`;
-  }).join('');
+}
 
-  const totals = InvestEngine.liquidTotals(invData.assets, invData.rates);
-  document.getElementById('assets-total').innerHTML =
-    `Hemen erişilebilir: <strong>${investFmtTL(totals.quick)}</strong> · Toplam: <strong>${investFmtTL(totals.total)}</strong>`;
+function invRenderAssets() {
+  const cashAssets = invData.assets.filter((a) => a.purpose !== 'investment');
+  const investAssets = invData.assets.filter((a) => a.purpose === 'investment');
+
+  const cashEl = document.getElementById('assets-cash-list');
+  if (cashAssets.length === 0) {
+    cashEl.innerHTML = '<li class="inv-list-empty" style="cursor:default">Henüz kullanılabilir nakit girmedin. "+ Ekle" ile başla.</li>';
+  } else {
+    cashEl.innerHTML = cashAssets.map(invAssetRow).join('');
+  }
+  const cashTotals = InvestEngine.liquidTotals(invData.assets, invData.rates);
+  document.getElementById('assets-cash-total').innerHTML =
+    `<strong>Kullanılabilir nakit toplamı: ${investFmtTL(cashTotals.total)}</strong>${cashTotals.slow > 0 ? ` <span class="inv-muted">(${investFmtTL(cashTotals.slow)} kısmı geç erişilir)</span>` : ''}`;
+
+  const investEl = document.getElementById('assets-investment-list');
+  if (investAssets.length === 0) {
+    investEl.innerHTML = '<li class="inv-list-empty" style="cursor:default">Zaten sahip olduğun döviz/altın gibi yatırımların varsa buraya ekle — hesaba karışmaz.</li>';
+  } else {
+    investEl.innerHTML = investAssets.map(invAssetRow).join('');
+  }
+  const investTotals = InvestEngine.investmentTotals(invData.assets, invData.rates);
+  document.getElementById('assets-investment-total').innerHTML =
+    investAssets.length ? `Toplam mevcut yatırım değeri: <strong>${investFmtTL(investTotals.total)}</strong>` : '';
+}
+
+function invRenderCreditCard() {
+  const cc = invData.creditCard;
+  document.getElementById('cc-debt').textContent = investFmtTL(cc.debt);
+  document.getElementById('cc-planned').textContent = investFmtTL(cc.plannedPayment);
 }
 
 function invRenderIncomes() {
@@ -191,21 +234,26 @@ function invRenderIncomes() {
     return;
   }
   const relCls = { guaranteed: 'green', likely: 'orange', uncertain: 'red' };
-  el.innerHTML = invData.incomes.map((inc) => `
+  el.innerHTML = invData.incomes.map((inc) => {
+    const dateLabel = inc.nextDate ? new Date(inc.nextDate).toLocaleDateString('tr-TR') : null;
+    return `
     <li data-edit="income" data-id="${inc.id}">
       <div class="inv-item-main">
         <span class="inv-item-name">${invEsc(inc.name)}</span>
         <div class="inv-item-tags">
-          <span class="inv-chip blue">${INVEST_LABELS.recurrence[inc.recurrence] || ''}</span>
+          <span class="inv-chip blue">${INVEST_LABELS.frequency[inc.frequency] || ''}</span>
           <span class="inv-chip ${relCls[inc.reliability] || ''}">${INVEST_LABELS.reliability[inc.reliability] || ''}</span>
-          ${inc.expectedDay ? `<span class="inv-chip">ayın ${inc.expectedDay}.</span>` : ''}
+          ${dateLabel ? `<span class="inv-chip">sıradaki: ${dateLabel}</span>` : ''}
         </div>
       </div>
       <span class="inv-item-amount">${investFmtTL(inc.amountTl)}</span>
-    </li>`).join('');
+    </li>`;
+  }).join('');
 
   const total = invData.incomes.reduce((s, i) => s + (Number(i.amountTl) || 0), 0);
-  document.getElementById('incomes-total').innerHTML = `Aylık toplam: <strong>${investFmtTL(total)}</strong>`;
+  const monthlyAvg = InvestEngine.projectedMonthlyIncome(invData.incomes, invData.riskLevel);
+  document.getElementById('incomes-total').innerHTML =
+    `<strong>Girdiğin toplam kalem: ${investFmtTL(total)}</strong> · aylık ortalama ≈ ${investFmtTL(monthlyAvg)}`;
 }
 
 function invRenderExpenses() {
@@ -228,24 +276,24 @@ function invRenderExpenses() {
   wrap.innerHTML = groups.map((g) => {
     const items = invData.expenses.filter((e) => (e.category || 'other') === g.key);
     if (items.length === 0) return '';
+    const subtotal = items.reduce((s, e) => s + (Number(e.amountTl) || 0), 0);
     const rows = items.map((e) => `
       <li data-edit="expense" data-id="${e.id}">
         <div class="inv-item-main">
           <span class="inv-item-name">${invEsc(e.name)}</span>
           <div class="inv-item-tags">
             <span class="inv-chip ${necCls[e.necessity] || ''}">${INVEST_LABELS.necessity[e.necessity] || ''}</span>
-            <span class="inv-chip">iptal: ${INVEST_LABELS.cancelImpact[e.cancelImpact] || '—'}</span>
             ${e.dueDay ? `<span class="inv-chip">son gün ${e.dueDay}</span>` : ''}
           </div>
         </div>
         <span class="inv-item-amount">${investFmtTL(e.amountTl)}</span>
       </li>`).join('');
-    return `<h3 class="inv-group-title">${g.title}</h3><ul class="inv-list">${rows}</ul>`;
+    return `<h3 class="inv-group-title">${g.title} <span class="inv-group-subtotal">${investFmtTL(subtotal)}</span></h3><ul class="inv-list">${rows}</ul>`;
   }).join('');
 
   const t = InvestEngine.expenseTotals(invData.expenses);
   document.getElementById('expenses-total').innerHTML =
-    `Zorunlu: <strong>${investFmtTL(t.essential)}</strong> · Aylık toplam: <strong>${investFmtTL(t.total)}</strong>`;
+    `<strong>Aylık toplam gider: ${investFmtTL(t.total)}</strong> · Zorunlu: ${investFmtTL(t.essential)}`;
 }
 
 function invRenderGoals() {
@@ -276,19 +324,24 @@ function invRenderBreakdown() {
   const res = InvestEngine.computeThisMonth(invData);
   const rows = [
     {
-      label: 'Hemen erişilebilir paran',
-      sub: 'anında veya 1-3 günde bozdurabildiğin varlıklar',
+      label: 'Kullanılabilir nakit',
+      sub: 'bankada/elde duran, harcamaya karar vermediğin TL — zaten yatırım olan döviz/altın DAHİL DEĞİL',
       value: res.liquidQuick, sign: 'plus'
     },
     {
       label: 'Bu ay gelecek kesin gelir',
-      sub: 'garantili ve günü henüz gelmemiş gelirler',
+      sub: 'garantili ve sıradaki ödeme tarihi bu ay içinde olan gelirler',
       value: res.incomeCounted, sign: 'plus'
     },
     {
       label: 'Bu ay çıkacak giderler',
       sub: 'günü gelmemiş faturalar + kalan yaşam giderleri',
       value: -res.expensesCounted, sign: 'minus'
+    },
+    {
+      label: 'Kredi kartı ödemesi',
+      sub: 'Kredi Kartı bölümünde girdiğin bu ayki ödeme',
+      value: -res.cardPayment, sign: 'minus'
     },
     {
       label: 'Hedeflere ayrılan pay',
@@ -309,6 +362,9 @@ function invRenderBreakdown() {
 
   const list = document.getElementById('breakdown-list');
   const resultCls = res.max > 0 ? 'result' : 'result warn';
+  const resultLine = res.maxUsd != null && res.max > 0
+    ? `${investFmtTL(res.max)} <span class="inv-breakdown-usd">≈ ${investFmtUsd(res.maxUsd)}</span>`
+    : investFmtTL(res.max);
   list.innerHTML = rows.map((r) => `
     <li class="${r.sign}">
       <span>${r.label}<span class="inv-breakdown-sub">${r.sub}</span></span>
@@ -316,7 +372,7 @@ function invRenderBreakdown() {
     </li>`).join('') +
     `<li class="${resultCls}">
       <span>Güvenle yatırabileceğin</span>
-      <strong>${investFmtTL(res.max)}</strong>
+      <strong>${resultLine}</strong>
     </li>`;
 
   const detail = document.getElementById('breakdown-detail');
@@ -324,8 +380,11 @@ function invRenderBreakdown() {
   if (res.raw < 0) {
     parts.push(`Ham sonuç ${investFmtSigned(res.raw)} çıktığı için yatırılabilir tutar <strong>₺0</strong> olarak gösterildi — önce tamponun dolmalı.`);
   }
+  if (res.investmentTotal > 0) {
+    parts.push(`Zaten sahip olduğun <strong>${investFmtTL(res.investmentTotal)}</strong> değerindeki döviz/altın "mevcut yatırım" sayıldı ve bu hesaba HİÇ katılmadı — o para zaten yatırımda.`);
+  }
   if (res.liquidSlow > 0) {
-    parts.push(`${investFmtTL(res.liquidSlow)} tutarındaki varlığa 1 haftadan geç eriştiğin için bu ayın hesabına katılmadı.`);
+    parts.push(`Nakit varlıklarından ${investFmtTL(res.liquidSlow)} tutarına 1 haftadan geç eriştiğin için bu ayın hesabına katılmadı.`);
   }
   parts.push(`Risk seviyesi: <strong>${res.params.label}</strong>. Seviyeyi değiştirirsen yastık ve pay miktarları değişir, rakam anında güncellenir.`);
   detail.innerHTML = parts.join('<br><br>');
@@ -333,9 +392,17 @@ function invRenderBreakdown() {
 
 // ---------- Formlar ----------
 
+function invUpdateAssetPurposeDefault() {
+  const cur = document.getElementById('asset-currency').value;
+  const purposeSelect = document.getElementById('asset-purpose');
+  if (purposeSelect.dataset.userTouched === 'true') return;
+  purposeSelect.value = cur === 'TRY' ? 'cash' : 'investment';
+}
+
 function invOpenAssetModal(id) {
   const f = document.getElementById('asset-form');
   f.reset();
+  document.getElementById('asset-purpose').dataset.userTouched = 'false';
   const a = id ? invData.assets.find((x) => x.id === id) : null;
   document.getElementById('asset-modal-title').textContent = a ? 'Varlık Düzenle' : 'Varlık Ekle';
   document.getElementById('btn-delete-asset').classList.toggle('hidden', !a);
@@ -346,13 +413,17 @@ function invOpenAssetModal(id) {
     f.currency.value = a.currency;
     f.amount.value = a.amount;
     f.accessibility.value = a.accessibility;
+    f.purpose.value = a.purpose || 'cash';
+    document.getElementById('asset-purpose').dataset.userTouched = 'true';
+  } else {
+    invUpdateAssetPurposeDefault();
   }
   invUpdateAssetHint();
   Modal.open('asset-modal');
 }
 
 function invUpdateAssetHint() {
-  const cur = document.querySelector('#asset-form [name="currency"]').value;
+  const cur = document.getElementById('asset-currency').value;
   document.getElementById('asset-amount-hint').textContent =
     cur === 'XAU' ? '(gram cinsinden)' : `(${INVEST_LABELS.currency[cur]} cinsinden)`;
 }
@@ -367,9 +438,9 @@ function invOpenIncomeModal(id) {
   if (inc) {
     f.name.value = inc.name;
     f.amountTl.value = inc.amountTl;
-    f.recurrence.value = inc.recurrence;
+    f.frequency.value = inc.frequency;
     f.reliability.value = inc.reliability;
-    f.expectedDay.value = inc.expectedDay ?? '';
+    f.nextDate.value = inc.nextDate || '';
   }
   Modal.open('income-modal');
 }
@@ -419,7 +490,6 @@ function invSaveAndRefresh(msg) {
 function invBindEvents() {
   INV_MODAL_IDS.forEach((id) => Modal.bind(id));
 
-  // Risk seçici
   document.querySelectorAll('#risk-selector button').forEach((btn) => {
     btn.addEventListener('click', () => {
       invData.riskLevel = btn.dataset.risk;
@@ -427,25 +497,19 @@ function invBindEvents() {
     });
   });
 
-  // Enflasyon kaydırıcısı
   document.getElementById('inflation-months').addEventListener('input', invRenderInflation);
 
-  // Neden bu rakam?
   document.getElementById('btn-why').addEventListener('click', () => {
     invRenderBreakdown();
     Modal.open('why-modal');
   });
 
-  // İlk kurulum
   document.getElementById('btn-start-setup').addEventListener('click', () => invOpenAssetModal());
-
-  // Ekle butonları
   document.getElementById('btn-add-asset').addEventListener('click', () => invOpenAssetModal());
   document.getElementById('btn-add-income').addEventListener('click', () => invOpenIncomeModal());
   document.getElementById('btn-add-expense').addEventListener('click', () => invOpenExpenseModal());
   document.getElementById('btn-add-goal').addEventListener('click', () => invOpenGoalModal());
 
-  // Listeye dokununca düzenle
   document.querySelector('.main').addEventListener('click', (e) => {
     const li = e.target.closest('li[data-edit]');
     if (!li) return;
@@ -456,8 +520,13 @@ function invBindEvents() {
     else if (li.dataset.edit === 'goal') invOpenGoalModal(id);
   });
 
-  // Varlık formu
-  document.querySelector('#asset-form [name="currency"]').addEventListener('change', invUpdateAssetHint);
+  document.getElementById('asset-currency').addEventListener('change', () => {
+    invUpdateAssetHint();
+    invUpdateAssetPurposeDefault();
+  });
+  document.getElementById('asset-purpose').addEventListener('change', (e) => {
+    e.target.dataset.userTouched = 'true';
+  });
   document.getElementById('asset-form').addEventListener('submit', (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
@@ -467,7 +536,8 @@ function invBindEvents() {
       kind: fd.get('kind'),
       currency: fd.get('currency'),
       amount: Math.max(0, Number(fd.get('amount')) || 0),
-      accessibility: fd.get('accessibility')
+      accessibility: fd.get('accessibility'),
+      purpose: fd.get('purpose') || 'cash'
     };
     const i = invData.assets.findIndex((x) => x.id === item.id);
     if (i >= 0) invData.assets[i] = item; else invData.assets.push(item);
@@ -481,18 +551,16 @@ function invBindEvents() {
     invSaveAndRefresh('Varlık silindi');
   });
 
-  // Gelir formu
   document.getElementById('income-form').addEventListener('submit', (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
-    const day = fd.get('expectedDay');
     const item = {
       id: fd.get('id') || investNewId(),
       name: String(fd.get('name')).trim() || 'Gelir',
       amountTl: Math.max(0, Number(fd.get('amountTl')) || 0),
-      recurrence: fd.get('recurrence'),
+      frequency: fd.get('frequency'),
       reliability: fd.get('reliability'),
-      expectedDay: day ? Number(day) : null
+      nextDate: fd.get('nextDate') || null
     };
     const i = invData.incomes.findIndex((x) => x.id === item.id);
     if (i >= 0) invData.incomes[i] = item; else invData.incomes.push(item);
@@ -506,7 +574,6 @@ function invBindEvents() {
     invSaveAndRefresh('Gelir silindi');
   });
 
-  // Gider formu
   document.getElementById('expense-form').addEventListener('submit', (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
@@ -532,7 +599,6 @@ function invBindEvents() {
     invSaveAndRefresh('Gider silindi');
   });
 
-  // Hedef formu
   document.getElementById('goal-form').addEventListener('submit', (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
@@ -554,7 +620,24 @@ function invBindEvents() {
     invSaveAndRefresh('Hedef silindi');
   });
 
-  // Ayarlar
+  document.getElementById('btn-edit-cc').addEventListener('click', () => {
+    const f = document.getElementById('cc-form');
+    f.debt.value = invData.creditCard.debt || 0;
+    f.plannedPayment.value = invData.creditCard.plannedPayment || 0;
+    f.dueDay.value = invData.creditCard.dueDay ?? '';
+    Modal.open('cc-modal');
+  });
+  document.getElementById('cc-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    invData.creditCard.debt = Math.max(0, Number(fd.get('debt')) || 0);
+    invData.creditCard.plannedPayment = Math.max(0, Number(fd.get('plannedPayment')) || 0);
+    const due = fd.get('dueDay');
+    invData.creditCard.dueDay = due ? Number(due) : null;
+    Modal.close('cc-modal');
+    invSaveAndRefresh('Kredi kartı güncellendi ✓');
+  });
+
   document.getElementById('btn-invest-settings').addEventListener('click', () => {
     const f = document.getElementById('invest-settings-form');
     f.annualPct.value = invData.inflation.annualPct;
@@ -575,7 +658,6 @@ function invBindEvents() {
     invSaveAndRefresh('Ayarlar kaydedildi ✓');
   });
 
-  // Alt navigasyon: sayfa içi kaydırma
   document.querySelectorAll('.nav-item[data-scroll]').forEach((btn) => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.nav-item').forEach((b) => b.classList.remove('active'));

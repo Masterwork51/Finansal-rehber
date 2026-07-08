@@ -19,6 +19,14 @@
 }
 .inv-hero.status-risk .savings-amount { color: var(--danger); }
 
+.inv-max-usd {
+  font-family: var(--mono);
+  font-size: 1.15rem;
+  color: var(--text-muted);
+  margin: -2px 0 4px;
+  font-weight: 600;
+}
+
 .inv-why-btn {
   display: block;
   margin: 14px auto 0;
@@ -269,13 +277,47 @@
 }
 .inv-list-total strong { font-family: var(--mono); color: var(--text); }
 
+/* Toplamları öne çıkar — kullanıcı "toplamlar görünmüyor" demesin diye
+   her bölümün en üstünde, büyük ve belirgin bir toplam kutusu gösterilir */
+.inv-list-total-top {
+  text-align: left;
+  border-top: none;
+  border-bottom: 1px solid var(--border);
+  padding: 0 0 12px;
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+}
+.inv-list-total-top strong {
+  font-size: 1.15rem;
+  color: var(--text);
+}
+.inv-muted { color: var(--text-muted); font-size: 0.78rem; }
+
 .inv-group-title {
   font-size: 0.78rem;
   color: var(--text-muted);
   font-weight: 600;
   margin: 14px 0 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 .inv-group-title:first-child { margin-top: 0; }
+.inv-group-title-muted {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--border);
+}
+.inv-group-title-muted .inv-chip {
+  font-size: 0.6rem;
+  text-transform: none;
+}
+.inv-group-subtotal {
+  font-family: var(--mono);
+  color: var(--text);
+  font-weight: 600;
+  font-size: 0.8rem;
+}
 
 /* Breakdown (Neden bu rakam?) */
 .inv-breakdown { list-style: none; margin-bottom: 14px; }
@@ -302,6 +344,13 @@
 .inv-breakdown li.result strong { color: var(--success); font-size: 1.05rem; }
 .inv-breakdown li.result.warn { background: var(--warning-dim); }
 .inv-breakdown li.result.warn strong { color: var(--warning); }
+.inv-breakdown-usd {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-top: 2px;
+}
 .inv-breakdown-sub {
   display: block;
   font-size: 0.7rem;
@@ -358,3 +407,16 @@
 }
 
 a.nav-item { text-decoration: none; }
+
+/* Okunabilirlik: geniş ekranda (bilgisayar) daha ferah, daha büyük yazı */
+@media (min-width: 640px) {
+  #invest-main {
+    max-width: 640px;
+  }
+  #invest-main .card { padding: 22px 24px; }
+  #invest-main .card h2 { font-size: 1.08rem; }
+  #invest-main .inv-item-name { font-size: 0.96rem; }
+  #invest-main .inv-item-amount { font-size: 0.94rem; }
+  #invest-main .section-desc { font-size: 0.85rem; }
+  #invest-main .savings-amount { font-size: 3.4rem; }
+}
