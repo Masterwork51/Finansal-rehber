@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="description" content="Bu ay max kaç dolar biriktirebilirsin? Harcama kontrolü ve vize hedefi.">
+  <title>Birikim Hesaplayıcı</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css?v=4.0">
+</head>
+<body>
+  <div id="app">
+    <div id="splash" class="splash" aria-hidden="true">
+      <div class="splash-inner">
+        <div class="splash-logo">$</div>
+        <p>Birikim Hesaplayıcı</p>
+      </div>
+    </div>
+
+    <header class="header">
+      <div class="header-top">
+        <h1>Birikim Hesaplayıcı</h1>
+        <button type="button" class="btn-update" id="btn-quick-update">Güncelle</button>
+      </div>
+      <p class="header-month"><span id="current-month">—</span> · <span class="app-version">v4.0</span></p>
+      <div class="rates-bar" id="rates-bar">
+        <span id="rate-usd">USD —</span>
+        <span class="rates-source" id="rates-source">—</span>
+      </div>
+    </header>
+
+    <main class="main">
+      <!-- ANA CEVAP: Max biriktirebileceğin dolar -->
+      <section class="card savings-hero" id="savings-hero">
+        <span class="label">Bu Ay Max Biriktirebileceğin</span>
+        <p class="savings-amount" id="max-usd">$0</p>
+        <p class="savings-sub" id="max-tl">₺0 kalan</p>
+        <span class="risk-badge safe" id="risk-badge"><span class="risk-dot"></span> Uygun</span>
+      </section>
+
+      <!-- Nasıl hesaplandı? -->
+      <section class="card flow-card" id="flow-card">
+        <h2>Paran Nereye Gidiyor?</h2>
+        <ul class="flow-list" id="flow-list"></ul>
+        <div class="flow-result">
+          <span>Kalan → Dolar</span>
+          <strong id="flow-result">—</strong>
+        </div>
+      </section>
+
+      <!-- Harcama kısma önerileri -->
+      <section class="card cut-tips-card" id="cut-tips-card">
+        <h2>Harcamayı Kıs, Doları Artır</h2>
+        <ul class="cut-tips-list" id="cut-tips-list"></ul>
+      </section>
+
+      <!-- Akıllı tavsiye -->
+      <section class="card advice-card">
+        <div class="card-header">
+          <h2>Ne Yapmalısın?</h2>
+          <button type="button" class="text-btn" id="btn-refresh-advice">Yenile</button>
+        </div>
+        <p class="advice-text" id="advice-text">Hesaplanıyor…</p>
+      </section>
+
+      <!-- Giderler -->
+      <section class="card" id="expenses-section">
+        <div class="card-header">
+          <h2 id="expenses-title">Giderler</h2>
+          <button type="button" class="text-btn" id="btn-edit-expenses">Düzenle</button>
+        </div>
+        <p class="section-desc">Giderleri değiştirince max dolar otomatik güncellenir.</p>
+
+        <div id="expenses-view">
+          <div class="expense-groups">
+            <div class="expense-group">
+              <h3>Sabit</h3>
+              <ul class="expense-list" id="fixed-expenses"></ul>
+              <p class="expense-subtotal">Toplam: <strong id="fixed-total">—</strong></p>
+            </div>
+            <div class="expense-group">
+              <h3>Değişken <span class="tag">kısılacak</span></h3>
+              <ul class="expense-list" id="variable-expenses"></ul>
+              <p class="expense-subtotal">Toplam: <strong id="variable-total">—</strong></p>
+            </div>
+          </div>
+          <p class="expense-grand-total">Aylık gider: <strong id="monthly-total">—</strong></p>
+        </div>
+
+        <div id="expenses-edit" class="hidden">
+          <form id="expenses-inline-form">
+            <fieldset>
+              <legend>Sabit Giderler</legend>
+              <div id="fixed-expenses-editor"></div>
+              <button type="button" class="btn-add" data-type="fixed">+ Ekle</button>
+            </fieldset>
+            <fieldset>
+              <legend>Değişken Giderler</legend>
+              <div id="variable-expenses-editor"></div>
+              <button type="button" class="btn-add" data-type="variable">+ Ekle</button>
+            </fieldset>
+            <label class="quick-field">
+              <span>Aylık maaş (TL)</span>
+              <input type="number" name="monthlySalary" inputmode="decimal" min="0">
+            </label>
+            <label class="quick-field">
+              <span>Elde tutulacak TL (güvenlik payı)</span>
+              <input type="number" name="tlBuffer" inputmode="decimal" min="0">
+            </label>
+            <div class="inline-edit-actions">
+              <button type="button" class="btn secondary" id="btn-cancel-expenses">İptal</button>
+              <button type="submit" class="btn primary">Kaydet</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <!-- Kredi kartı -->
+      <section class="card credit-card" id="cc-section">
+        <div class="card-header">
+          <h2>Kredi Kartı</h2>
+          <button type="button" class="text-btn" id="btn-edit-cc">Düzenle</button>
+        </div>
+        <div class="cc-grid">
+          <div class="cc-stat">
+            <span class="label">Toplam Borç</span>
+            <span class="cc-amount danger" id="cc-debt">—</span>
+          </div>
+          <div class="cc-stat">
+            <span class="label">Bu Ay Ödeyeceğin</span>
+            <span class="cc-date" id="cc-planned">—</span>
+          </div>
+          <div class="cc-stat highlight">
+            <span class="label">Son Ödeme · Kalan</span>
+            <span class="cc-days" id="cc-days">—</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Vize hedefi -->
+      <section class="card visa-goal-card" id="visa-goal">
+        <h2>Vize Hedefi: 5.000 USD</h2>
+        <div class="goal-stats">
+          <div class="goal-stat"><span>Mevcut</span><strong id="visa-current">—</strong></div>
+          <div class="goal-stat"><span>Kalan</span><strong id="visa-remaining">—</strong></div>
+          <div class="goal-stat"><span>Tahmini</span><strong id="visa-eta">—</strong></div>
+        </div>
+        <div class="goal-progress"><div class="goal-progress-fill visa" id="visa-progress"></div></div>
+      </section>
+
+      <!-- Kontrol listesi -->
+      <section class="card checklist-card">
+        <div class="card-header">
+          <h2>Bu Ay Yapılacaklar</h2>
+          <span class="checklist-pct" id="checklist-pct">0%</span>
+        </div>
+        <ul class="checklist" id="checklist"></ul>
+      </section>
+
+      <!-- Grafik -->
+      <section class="card" id="charts-title">
+        <h2>USD Birikim Trendi</h2>
+        <div class="chart-container">
+          <canvas id="chart-usd" height="180"></canvas>
+        </div>
+      </section>
+    </main>
+
+    <nav class="bottom-nav">
+      <button type="button" class="nav-item active" data-scroll="savings-hero">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+        <span>Max $</span>
+      </button>
+      <button type="button" class="nav-item" data-scroll="expenses-section">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+        <span>Giderler</span>
+      </button>
+      <button type="button" class="nav-item" data-scroll="visa-goal">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+        <span>Vize</span>
+      </button>
+      <a class="nav-item" href="yatirim.html" style="text-decoration:none">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l6-6 4 4 8-8M21 7v6h-6"/></svg>
+        <span>Yatırım</span>
+      </a>
+    </nav>
+
+    <!-- Güncelle -->
+    <div id="quick-modal" class="modal-sheet" aria-hidden="true">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Rakamları Güncelle</h2>
+          <button type="button" class="icon-btn modal-close" aria-label="Kapat">&times;</button>
+        </div>
+        <p class="modal-desc">Bankadan baktığın rakamları gir. Max dolar otomatik hesaplanır.</p>
+        <form id="quick-form" class="quick-form">
+          <label class="quick-field"><span>Aylık maaş (TL)</span><input type="number" name="monthlySalary" inputmode="decimal" min="0"></label>
+          <label class="quick-field"><span>Vize hesabındaki USD</span><input type="number" name="visaUsd" inputmode="decimal" min="0"></label>
+          <label class="quick-field"><span>Kart borcu (TL)</span><input type="number" name="ccDebt" inputmode="decimal" min="0"></label>
+          <label class="quick-field"><span>Bu ay karta ödeyeceğin (TL)</span><input type="number" name="ccPlanned" inputmode="decimal" min="0"></label>
+          <div class="modal-actions"><button type="submit" class="btn primary">Kaydet</button></div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Kart düzenle -->
+    <div id="cc-modal" class="modal-sheet" aria-hidden="true">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Kredi Kartı</h2>
+          <button type="button" class="icon-btn modal-close" aria-label="Kapat">&times;</button>
+        </div>
+        <form id="cc-form" class="quick-form">
+          <label class="quick-field"><span>Toplam borç (TL)</span><input type="number" name="ccDebt" min="0"></label>
+          <label class="quick-field"><span>Bu ay ödeyeceğin (TL)</span><input type="number" name="ccPlanned" min="0"></label>
+          <label class="quick-field"><span>Son ödeme günü</span><input type="number" name="ccDueDay" min="1" max="31"></label>
+          <div class="modal-actions"><button type="submit" class="btn primary">Kaydet</button></div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/data.js?v=4.0"></script>
+  <script src="js/modal.js?v=4.0"></script>
+  <script src="js/rates.js?v=4.0"></script>
+  <script src="js/advice.js?v=4.0"></script>
+  <script src="js/charts.js?v=4.0"></script>
+  <script src="js/app.js?v=4.0"></script>
+</body>
+</html>
