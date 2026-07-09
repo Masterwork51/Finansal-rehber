@@ -4,6 +4,10 @@ import { VitePWA } from 'vite-plugin-pwa'
 export default defineConfig({
   // GitHub Pages: /Finansal-rehber/perde/
   base: process.env.VITE_BASE || './',
+  server: {
+    host: true,
+    allowedHosts: true,
+  },
   plugins: [
     VitePWA({
       registerType: 'autoUpdate',
