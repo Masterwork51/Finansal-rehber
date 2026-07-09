@@ -1,19 +1,23 @@
 const API = 'https://api.themoviedb.org/3'
 const IMG = 'https://image.tmdb.org/t/p'
 
+/** Kişisel kullanım — .env varsa onu tercih eder */
+const DEFAULT_KEY = 'af62b02452761de3f160e4c41f2244d7'
+
 export function getApiKey() {
-  return import.meta.env.VITE_TMDB_API_KEY || ''
+  const fromEnv = import.meta.env.VITE_TMDB_API_KEY
+  if (fromEnv && fromEnv !== 'buraya_tmdb_api_key_yaz') return fromEnv
+  return DEFAULT_KEY
 }
 
 export function hasApiKey() {
-  const key = getApiKey()
-  return Boolean(key && key !== 'buraya_tmdb_api_key_yaz')
+  return Boolean(getApiKey())
 }
 
 async function tmdb(path, params = {}) {
   const key = getApiKey()
-  if (!key || key === 'buraya_tmdb_api_key_yaz') {
-    throw new Error('TMDB API anahtarı eksik. film-tavsiye/.env dosyasına VITE_TMDB_API_KEY ekle.')
+  if (!key) {
+    throw new Error('TMDB API anahtarı eksik.')
   }
 
   const url = new URL(`${API}${path}`)
