@@ -14,11 +14,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: film-tavsiye/package-lock.json
+
+      - name: Perde (film tavsiye) build
+        working-directory: film-tavsiye
+        run: |
+          npm ci
+          npm run build
+
       - name: Site dosyalarını hazırla
         run: |
           mkdir -p _site
           cp index.html yatirim.html manifest.json sw.js _site/
           cp -r css js icons data _site/
+          mkdir -p _site/perde
+          cp -r film-tavsiye/dist/* _site/perde/
 
       - name: GitHub Pages'e yükle
         uses: peaceiris/actions-gh-pages@v4

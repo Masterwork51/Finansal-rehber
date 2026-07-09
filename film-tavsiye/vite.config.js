@@ -2,7 +2,8 @@ import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
-  base: './',
+  // GitHub Pages: /Finansal-rehber/perde/
+  base: process.env.VITE_BASE || './',
   plugins: [
     VitePWA({
       registerType: 'autoUpdate',
