@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Müşteri Not Defteri</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #1e293b;
+    --panel-2: #273449;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --border: #334155;
+    --accent: #3b82f6;
+    --accent-hover: #2563eb;
+    --low: #22c55e;
+    --normal: #eab308;
+    --high: #ef4444;
+    --danger: #dc2626;
+    --shadow: 0 4px 12px rgba(0,0,0,.25);
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .app { max-width: 900px; margin: 0 auto; padding: 16px 16px 80px; }
+
+  header.topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; flex-wrap: wrap; margin-bottom: 16px;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand .logo {
+    width: 40px; height: 40px; border-radius: 10px;
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    display: grid; place-items: center; font-size: 22px;
+  }
+  .brand h1 { font-size: 19px; margin: 0; line-height: 1.1; }
+  .brand small { color: var(--muted); font-size: 12px; }
+
+  .toolbar-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+  button {
+    font-family: inherit; font-size: 14px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--panel-2); color: var(--text);
+    padding: 8px 12px; border-radius: 8px; transition: .15s;
+  }
+  button:hover { background: #334155; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.primary:hover { background: var(--accent-hover); }
+  button.ghost { background: transparent; }
+
+  /* Quick add form */
+  .card-form {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow);
+    margin-bottom: 18px;
+  }
+  .form-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+  .field { display: flex; flex-direction: column; gap: 4px; flex: 1 1 160px; }
+  .field label { font-size: 12px; color: var(--muted); font-weight: 600; }
+  input, select, textarea {
+    font-family: inherit; font-size: 14px; color: var(--text);
+    background: var(--panel-2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 9px 11px; width: 100%;
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(59,130,246,.25);
+  }
+  textarea { resize: vertical; min-height: 46px; }
+  .note-field { flex: 1 1 100%; }
+
+  .importance-picker { display: flex; gap: 6px; }
+  .imp-btn {
+    flex: 1; text-align: center; padding: 9px 6px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--panel-2);
+    font-size: 13px; font-weight: 600;
+  }
+  .imp-btn[data-active="true"][data-imp="low"] { background: var(--low); border-color: var(--low); color: #06240f; }
+  .imp-btn[data-active="true"][data-imp="normal"] { background: var(--normal); border-color: var(--normal); color: #2b2300; }
+  .imp-btn[data-active="true"][data-imp="high"] { background: var(--high); border-color: var(--high); color: #2b0606; }
+
+  .form-actions { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .hint { color: var(--muted); font-size: 12px; }
+
+  /* Filters */
+  .filters {
+    display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+    margin-bottom: 14px;
+  }
+  .filters .search { flex: 1 1 220px; }
+  .filters select { flex: 0 0 auto; width: auto; }
+  .tabs { display: flex; gap: 6px; }
+  .tab {
+    padding: 7px 14px; border-radius: 20px; border: 1px solid var(--border);
+    background: transparent; font-size: 13px; font-weight: 600;
+  }
+  .tab[data-active="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  /* Notes list */
+  .stats { color: var(--muted); font-size: 13px; margin: 6px 2px 10px; }
+  .notes { display: flex; flex-direction: column; gap: 10px; }
+  .note {
+    background: var(--panel); border: 1px solid var(--border);
+    border-left: 5px solid var(--border); border-radius: 10px;
+    padding: 13px 15px; box-shadow: var(--shadow); position: relative;
+  }
+  .note[data-imp="low"] { border-left-color: var(--low); }
+  .note[data-imp="normal"] { border-left-color: var(--normal); }
+  .note[data-imp="high"] { border-left-color: var(--high); }
+  .note.archived { opacity: .7; }
+
+  .note-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .note-name { font-weight: 700; font-size: 16px; }
+  .note-body { margin: 6px 0; white-space: pre-wrap; word-break: break-word; }
+  .note-meta { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+  .chip {
+    font-size: 11.5px; padding: 3px 9px; border-radius: 20px;
+    background: var(--panel-2); border: 1px solid var(--border); color: var(--muted);
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .chip.cat { color: #93c5fd; border-color: #1d4ed8aa; }
+  .chip.date { color: #cbd5e1; }
+  .chip.date.overdue { color: #fff; background: var(--danger); border-color: var(--danger); }
+  .chip.date.today { color: #2b2300; background: var(--normal); border-color: var(--normal); }
+
+  .note-actions { display: flex; gap: 6px; }
+  .icon-btn {
+    padding: 5px 9px; font-size: 13px; border-radius: 7px; line-height: 1;
+    background: var(--panel-2);
+  }
+  .icon-btn.done { color: var(--low); }
+  .icon-btn.del:hover { background: var(--danger); border-color: var(--danger); color: #fff; }
+
+  .empty {
+    text-align: center; color: var(--muted); padding: 50px 20px;
+    border: 2px dashed var(--border); border-radius: var(--radius);
+  }
+  .empty .big { font-size: 40px; margin-bottom: 8px; }
+
+  .footer-note { text-align: center; color: var(--muted); font-size: 12px; margin-top: 26px; }
+
+  @media (max-width: 560px) {
+    .brand h1 { font-size: 17px; }
+    .note-name { font-size: 15px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">🗂️</div>
+      <div>
+        <h1>Müşteri Not Defteri</h1>
+        <small>Notların yalnızca bu bilgisayarda saklanır · İnternet gerekmez</small>
+      </div>
+    </div>
+    <div class="toolbar-btns">
+      <button id="btnExport" class="ghost" title="Tüm notları dosyaya yedekle">⬇️ Yedekle</button>
+      <button id="btnImport" class="ghost" title="Yedek dosyasından geri yükle">⬆️ Geri Yükle</button>
+      <input type="file" id="importFile" accept="application/json" hidden />
+    </div>
+  </header>
+
+  <!-- Quick add -->
+  <form class="card-form" id="noteForm" autocomplete="off">
+    <div class="form-row">
+      <div class="field" style="flex:2 1 220px;">
+        <label for="fName">Müşteri Adı</label>
+        <input type="text" id="fName" placeholder="Örn. Ahmet Söner" />
+      </div>
+      <div class="field">
+        <label for="fPhone">Telefon (opsiyonel)</label>
+        <input type="text" id="fPhone" placeholder="05.." inputmode="tel" />
+      </div>
+      <div class="field">
+        <label for="fTc">TC / Müşteri No (opsiyonel)</label>
+        <input type="text" id="fTc" placeholder="Kimlik / müşteri no" inputmode="numeric" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="field note-field">
+        <label for="fNote">Not / Yapılacak İş *</label>
+        <textarea id="fNote" placeholder="Örn. 1 milyon çekecek Pzt · veya · Kredi kartı yapılandırdık, imza alınacak&#10;(Enter = kaydet · Shift+Enter = alt satır)"></textarea>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="field">
+        <label>Önem</label>
+        <div class="importance-picker" id="impPicker">
+          <button type="button" class="imp-btn" data-imp="low">🟢 Düşük</button>
+          <button type="button" class="imp-btn" data-imp="normal" data-active="true">🟡 Normal</button>
+          <button type="button" class="imp-btn" data-imp="high">🔴 Yüksek</button>
+        </div>
+      </div>
+      <div class="field">
+        <label for="fCat">Kategori</label>
+        <select id="fCat">
+          <option value="Genel">Genel</option>
+          <option value="Para Çekme/Yatırma">Para Çekme/Yatırma</option>
+          <option value="Kredi">Kredi</option>
+          <option value="Kredi Kartı">Kredi Kartı</option>
+          <option value="İmza / Evrak">İmza / Evrak</option>
+          <option value="Hesap İşlemleri">Hesap İşlemleri</option>
+          <option value="Yatırım">Yatırım</option>
+          <option value="Takip / Arama">Takip / Arama</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="fDate">Tarih / Hatırlatma (opsiyonel)</label>
+        <input type="date" id="fDate" />
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <span class="hint">💡 Not alanında <b>Enter</b>'a basınca kaydeder.</span>
+      <div>
+        <button type="button" class="ghost" id="btnClear">Temizle</button>
+        <button type="submit" class="primary" id="btnSave">💾 Kaydet</button>
+      </div>
+    </div>
+  </form>
+
+  <!-- Filters -->
+  <div class="filters">
+    <input type="text" id="search" class="search" placeholder="🔍 Ara (isim, not, telefon, TC...)" />
+    <select id="filterCat"><option value="">Tüm kategoriler</option></select>
+    <select id="filterImp">
+      <option value="">Tüm önemler</option>
+      <option value="high">🔴 Yüksek</option>
+      <option value="normal">🟡 Normal</option>
+      <option value="low">🟢 Düşük</option>
+    </select>
+    <select id="sortBy">
+      <option value="created">Sıra: Eklenme (yeni)</option>
+      <option value="date">Sıra: Tarih (yakın)</option>
+      <option value="importance">Sıra: Önem (yüksek)</option>
+      <option value="name">Sıra: İsim (A-Z)</option>
+    </select>
+  </div>
+
+  <div class="tabs" style="margin-bottom:12px;">
+    <button class="tab" data-view="active" data-active="true">📋 Aktif</button>
+    <button class="tab" data-view="archived">📦 Arşiv</button>
+  </div>
+
+  <div class="stats" id="stats"></div>
+  <div class="notes" id="notes"></div>
+
+  <div class="footer-note">Müşteri Not Defteri · Veriler cihazında kalır. Düzenli olarak "Yedekle" ile yedek al.</div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var STORAGE_KEY = "musteri_not_defteri_v1";
+
+  var state = {
+    notes: [],
+    importance: "normal",
+    editingId: null,
+    view: "active"
+  };
+
+  // ---------- Storage ----------
+  function load() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      state.notes = raw ? JSON.parse(raw) : [];
+    } catch (e) { state.notes = []; }
+    if (!Array.isArray(state.notes)) state.notes = [];
+  }
+  function save() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.notes)); }
+    catch (e) { alert("Kaydedilemedi: " + e.message); }
+  }
+
+  // ---------- Helpers ----------
+  function $(id) { return document.getElementById(id); }
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+  function esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+  function todayStr() {
+    var d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+  }
+  function formatDate(iso) {
+    if (!iso) return "";
+    var p = iso.split("-");
+    if (p.length !== 3) return iso;
+    var months = ["Oca","Şub","Mar","Nis","May","Haz","Tem","Ağu","Eyl","Eki","Kas","Ara"];
+    return parseInt(p[2],10) + " " + months[parseInt(p[1],10)-1] + " " + p[0];
+  }
+  var IMP_ORDER = { high: 0, normal: 1, low: 2 };
+
+  // ---------- Form ----------
+  var impPicker = $("impPicker");
+  impPicker.addEventListener("click", function (e) {
+    var btn = e.target.closest(".imp-btn");
+    if (!btn) return;
+    state.importance = btn.getAttribute("data-imp");
+    Array.prototype.forEach.call(impPicker.children, function (c) {
+      c.setAttribute("data-active", c === btn ? "true" : "false");
+    });
+  });
+
+  function setImportanceUI(imp) {
+    state.importance = imp;
+    Array.prototype.forEach.call(impPicker.children, function (c) {
+      c.setAttribute("data-active", c.getAttribute("data-imp") === imp ? "true" : "false");
+    });
+  }
+
+  function resetForm() {
+    $("fName").value = "";
+    $("fPhone").value = "";
+    $("fTc").value = "";
+    $("fNote").value = "";
+    $("fCat").value = "Genel";
+    $("fDate").value = "";
+    setImportanceUI("normal");
+    state.editingId = null;
+    $("btnSave").textContent = "💾 Kaydet";
+  }
+
+  function submitForm(e) {
+    if (e) e.preventDefault();
+    var note = $("fNote").value.trim();
+    var name = $("fName").value.trim();
+    if (!note && !name) { $("fNote").focus(); return; }
+
+    if (state.editingId) {
+      var existing = state.notes.find(function (n) { return n.id === state.editingId; });
+      if (existing) {
+        existing.name = name;
+        existing.phone = $("fPhone").value.trim();
+        existing.tc = $("fTc").value.trim();
+        existing.note = note;
+        existing.category = $("fCat").value;
+        existing.date = $("fDate").value || "";
+        existing.importance = state.importance;
+        existing.updatedAt = Date.now();
+      }
+    } else {
+      state.notes.push({
+        id: uid(),
+        name: name,
+        phone: $("fPhone").value.trim(),
+        tc: $("fTc").value.trim(),
+        note: note,
+        category: $("fCat").value,
+        date: $("fDate").value || "",
+        importance: state.importance,
+        archived: false,
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      });
+    }
+    save();
+    resetForm();
+    $("fName").focus();
+    render();
+  }
+
+  $("noteForm").addEventListener("submit", submitForm);
+  $("btnClear").addEventListener("click", resetForm);
+
+  // Enter to save from note textarea (Shift+Enter = newline)
+  $("fNote").addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submitForm(); }
+  });
+  // Enter on simple fields also saves
+  ["fName","fPhone","fTc"].forEach(function (id) {
+    $(id).addEventListener("keydown", function (e) {
+      if (e.key === "Enter") { e.preventDefault(); submitForm(); }
+    });
+  });
+
+  // ---------- Filters / tabs ----------
+  ["search","filterCat","filterImp","sortBy"].forEach(function (id) {
+    $(id).addEventListener("input", render);
+    $(id).addEventListener("change", render);
+  });
+  document.querySelectorAll(".tab").forEach(function (t) {
+    t.addEventListener("click", function () {
+      state.view = t.getAttribute("data-view");
+      document.querySelectorAll(".tab").forEach(function (x) {
+        x.setAttribute("data-active", x === t ? "true" : "false");
+      });
+      render();
+    });
+  });
+
+  function refreshCategoryFilter() {
+    var sel = $("filterCat");
+    var current = sel.value;
+    var cats = {};
+    state.notes.forEach(function (n) { if (n.category) cats[n.category] = true; });
+    sel.innerHTML = '<option value="">Tüm kategoriler</option>';
+    Object.keys(cats).sort().forEach(function (c) {
+      var o = document.createElement("option");
+      o.value = c; o.textContent = c;
+      sel.appendChild(o);
+    });
+    sel.value = current;
+  }
+
+  // ---------- Actions (delegated) ----------
+  $("notes").addEventListener("click", function (e) {
+    var btn = e.target.closest("[data-act]");
+    if (!btn) return;
+    var id = btn.getAttribute("data-id");
+    var act = btn.getAttribute("data-act");
+    var n = state.notes.find(function (x) { return x.id === id; });
+    if (!n) return;
+
+    if (act === "done") {
+      n.archived = true; n.updatedAt = Date.now(); save(); render();
+    } else if (act === "restore") {
+      n.archived = false; n.updatedAt = Date.now(); save(); render();
+    } else if (act === "del") {
+      if (confirm("Bu not silinsin mi?")) { state.notes = state.notes.filter(function (x) { return x.id !== id; }); save(); render(); }
+    } else if (act === "edit") {
+      $("fName").value = n.name || "";
+      $("fPhone").value = n.phone || "";
+      $("fTc").value = n.tc || "";
+      $("fNote").value = n.note || "";
+      $("fCat").value = n.category || "Genel";
+      $("fDate").value = n.date || "";
+      setImportanceUI(n.importance || "normal");
+      state.editingId = n.id;
+      $("btnSave").textContent = "✏️ Güncelle";
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      $("fNote").focus();
+    }
+  });
+
+  // ---------- Render ----------
+  function matchesFilter(n) {
+    if (state.view === "active" && n.archived) return false;
+    if (state.view === "archived" && !n.archived) return false;
+    var cat = $("filterCat").value;
+    if (cat && n.category !== cat) return false;
+    var imp = $("filterImp").value;
+    if (imp && n.importance !== imp) return false;
+    var q = $("search").value.trim().toLowerCase();
+    if (q) {
+      var hay = [n.name, n.note, n.phone, n.tc, n.category].join(" ").toLowerCase();
+      if (hay.indexOf(q) === -1) return false;
+    }
+    return true;
+  }
+
+  function sortNotes(arr) {
+    var by = $("sortBy").value;
+    return arr.slice().sort(function (a, b) {
+      if (by === "date") {
+        var ad = a.date || "9999-99-99", bd = b.date || "9999-99-99";
+        if (ad !== bd) return ad < bd ? -1 : 1;
+        return b.createdAt - a.createdAt;
+      }
+      if (by === "importance") {
+        var ai = IMP_ORDER[a.importance] ?? 1, bi = IMP_ORDER[b.importance] ?? 1;
+        if (ai !== bi) return ai - bi;
+        return b.createdAt - a.createdAt;
+      }
+      if (by === "name") {
+        return (a.name || "").localeCompare(b.name || "", "tr");
+      }
+      return b.createdAt - a.createdAt; // created
+    });
+  }
+
+  function dateChip(iso) {
+    if (!iso) return "";
+    var t = todayStr();
+    var cls = "chip date";
+    var label = formatDate(iso);
+    if (iso < t) { cls += " overdue"; label = "⏰ Gecikti: " + label; }
+    else if (iso === t) { cls += " today"; label = "📅 Bugün: " + label; }
+    else { label = "📅 " + label; }
+    return '<span class="' + cls + '">' + esc(label) + "</span>";
+  }
+
+  function noteHTML(n) {
+    var name = n.name ? esc(n.name) : "<span style='color:var(--muted)'>(isimsiz not)</span>";
+    var contact = [];
+    if (n.phone) contact.push('<span class="chip">📞 ' + esc(n.phone) + "</span>");
+    if (n.tc) contact.push('<span class="chip">🆔 ' + esc(n.tc) + "</span>");
+    var actions = n.archived
+      ? '<button class="icon-btn" data-act="restore" data-id="'+n.id+'" title="Aktife al">↩️</button>'
+      : '<button class="icon-btn done" data-act="done" data-id="'+n.id+'" title="Tamamla / Arşivle">✅</button>';
+    actions += '<button class="icon-btn" data-act="edit" data-id="'+n.id+'" title="Düzenle">✏️</button>';
+    actions += '<button class="icon-btn del" data-act="del" data-id="'+n.id+'" title="Sil">🗑️</button>';
+
+    return '<div class="note ' + (n.archived ? "archived" : "") + '" data-imp="' + esc(n.importance) + '">' +
+      '<div class="note-head">' +
+        '<div class="note-name">' + name + "</div>" +
+        '<div class="note-actions">' + actions + "</div>" +
+      "</div>" +
+      (n.note ? '<div class="note-body">' + esc(n.note) + "</div>" : "") +
+      '<div class="note-meta">' +
+        '<span class="chip cat">🏷️ ' + esc(n.category || "Genel") + "</span>" +
+        dateChip(n.date) +
+        contact.join("") +
+      "</div>" +
+    "</div>";
+  }
+
+  function render() {
+    refreshCategoryFilter();
+    var visible = sortNotes(state.notes.filter(matchesFilter));
+    var container = $("notes");
+
+    var activeCount = state.notes.filter(function (n) { return !n.archived; }).length;
+    var archCount = state.notes.filter(function (n) { return n.archived; }).length;
+    $("stats").textContent = "Aktif: " + activeCount + " · Arşiv: " + archCount +
+      (visible.length !== state.notes.length ? " · Gösterilen: " + visible.length : "");
+
+    if (visible.length === 0) {
+      container.innerHTML = '<div class="empty"><div class="big">' +
+        (state.view === "archived" ? "📦" : "📝") + "</div>" +
+        (state.view === "archived"
+          ? "Arşivde not yok."
+          : "Henüz not yok. Yukarıdan hızlıca ekle!") +
+        "</div>";
+      return;
+    }
+    container.innerHTML = visible.map(noteHTML).join("");
+  }
+
+  // ---------- Export / Import ----------
+  $("btnExport").addEventListener("click", function () {
+    var data = JSON.stringify(state.notes, null, 2);
+    var blob = new Blob([data], { type: "application/json" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "musteri-notlari-" + todayStr() + ".json";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+  $("btnImport").addEventListener("click", function () { $("importFile").click(); });
+  $("importFile").addEventListener("change", function (e) {
+    var file = e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      try {
+        var imported = JSON.parse(reader.result);
+        if (!Array.isArray(imported)) throw new Error("Geçersiz dosya");
+        var mode = confirm("Yedeği MEVCUT notlarla birleştirmek için Tamam'a,\nmevcut notları SİLİP değiştirmek için İptal'e basın.");
+        if (mode) {
+          var existingIds = {};
+          state.notes.forEach(function (n) { existingIds[n.id] = true; });
+          imported.forEach(function (n) {
+            if (!n.id || existingIds[n.id]) n.id = uid();
+            state.notes.push(n);
+          });
+        } else {
+          state.notes = imported;
+        }
+        save(); render();
+        alert("Geri yükleme tamam. Toplam not: " + state.notes.length);
+      } catch (err) {
+        alert("Dosya okunamadı: " + err.message);
+      }
+      $("importFile").value = "";
+    };
+    reader.readAsText(file);
+  });
+
+  // ---------- Init ----------
+  load();
+  render();
+  $("fName").focus();
+})();
+</script>
+</body>
+</html>
